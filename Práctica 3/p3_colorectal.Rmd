@@ -1,0 +1,725 @@
+ircd---
+title: "**P3 | Solving real cases in genomics**<br><font color='#A8A8A8' size='5'>Which are the variants behind three common human diseases?</font>"
+author: "Current Topics in Bioinformatics"
+date: "27 November 2019"
+output:
+  html_document:
+    theme: yeti
+    css: https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/all.css
+    self_contained: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.align = "center", fig.width = 6, fig.height = 4)
+library(ggplot2)
+library(SNPassoc)
+library(snpStats)
+library(SNPRelate)
+library(dplyr)
+library(ggrepel)
+```
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+## 1. Introduction
+
+A **Genome-Wide Association Study** (**GWAS**) is a method for identifying susceptibility loci for complex diseases. It is based on the technique of scanning genomes of many subjects in order to identify the genetic variation possibly responsible for a disease through statistical tests. Normally, this method searches the genome for single nucleotide polymorphisms (SNPs), that occur more frequently in people with a particular disease than in people without the disease. 
+
+<center>
+  <img src = "http://vector.childrenshospital.org/wp-content/uploads/2015/10/people_magnifying_glass_Digital_Storm_shutterstock_203736538_640x360.jpg" width = 60%>
+</center>
+
+This approach has already identified SNPs related to several complex conditions including type 2 diabetes ([Fuchsberger et al. 2016](https://www.nature.com/articles/nature18642)), schizophrenia ([Schizophrenia Working Group of the Psychiatric Genomics Consortium 2014](https://www.nature.com/articles/nature13595)) or auto-immune diseases ([Okada et al. 2014](https://www.nature.com/articles/nature12873)).
+
+The technique needs a large number of subjects in order to reliably identify the variation. With the advent of next-generation sequencing technologies and the 1000 Genomes Project, this technique has been made possible.
+
+#### P3 Learning outcomes
+
+* Data manipulation (P1)
+* Descriptive analysis of the data (P1)
+* Quality control of the SNPs and the individuals
+* Perform an association analysis 
+* Create a Manhattan plot to visualize the results (P2)
+
+### 1.1 Practicals organization
+
+In this practical, we are going to use the [**RStudio**](https://rstudio.com/) integrated development environment (IDE) for R. R is a programming language for statistical computing and graphics.  
+
+You will see different icons through the document, the meaning of which is:
+
+&emsp;<i class="fas fa-info-circle"></i>: additional or useful information<br>
+&emsp;<i class="fas fa-search"></i>: a worked example<br>
+&emsp;<i class="fa fa-cogs"></i>: a practical exercise<br>
+&emsp;<i class="fas fa-comment-dots"></i>: a space to answer the exercise<br>
+&emsp;<i class="fa fa-key"></i>: a hint to solve an exercise<br>
+&emsp;<i class="fa fa-rocket"></i>: a more challenging exercise<br><br>
+
+### Glossary
+
+<div style = "background-color:#FFDAA1">
+
+- **Covariate**:	Any variable other than the main exposure of interest that is possibly predictive of the outcome under study; covariates include confounding variables which, in addition, are associated with exposure.
+
+- **Heterozygosity**: This is the carrying of two different alleles of a specific SNP. The heterozygosity rate of an individual is the proportion of heterozygous genotypes. High levels of heterozygosity within an individual might be an indication of low sample quality whereas low levels of heterozygosity may be due to inbreeding.
+
+- **Individual‐level missingness**: This is the number of SNPs that is missing for a specific individual. High levels of missingness can be an indication of poor DNA quality or technical problems.
+
+- **Minor allele frequency (MAF)**: This is the frequency of the least often occurring allele at a specific location. Most studies are underpowered to detect associations with SNPs with a low MAF and therefore exclude these SNPs.
+
+- **Relatedness**: This indicates how strongly a pair of individuals is genetically related. A conventional GWAS assumes that all subjects are unrelated (i.e., no pair of individuals is more closely related than second‐degree relatives). Without appropriate correction, the inclusion of relatives could lead to biased estimations of standard errors of SNP effect sizes. Note that specific tools for analysing family data have been developed.
+
+- **Sex discrepancy**: This is the difference between the assigned sex and the sex determined based on the genotype. A discrepancy likely points to sample mix‐ups in the lab. Note, this test can only be conducted when SNPs on the sex chromosomes (X and Y) have been assessed.
+
+- **SNP‐level missingness**: This is the number of individuals in the sample for whom information on a specific SNP is missing. SNPs with a high level of missingness can potentially lead to bias.
+
+- **Summary statistics**: These are the results obtained after conducting a GWAS, including information on chromosome number, position of the SNP, SNP(rs)‐identifier, MAF, effect size (odds ratio/beta), standard error, and p-value. Summary statistics of GWAS are often freely accessible or shared between researchers.
+
+- **The Hardy–Weinberg (dis)equilibrium (HWE) law**: This concerns the relation between the allele and genotype frequencies. It assumes an indefinitely large population, with no selection, mutation, or migration. The law states that the genotype and the allele frequencies are constant over generations. Violation of the HWE law indicates that genotype frequencies are significantly different from expectations and the observed frequency should not be significantly different. In GWAS, it is generally assumed that deviations from HWE are the result of genotyping errors. The HWE thresholds in cases are often less stringent than those in controls, as the violation of the HWE law in cases can be indicative of true genetic association with disease risk. In fact, normally the HWE is only tested in controls.
+</div>
+
+Concepts from [Marees et al. 2018](https://onlinelibrary.wiley.com/doi/full/10.1002/mpr.1608) and [Zondervan and Cardon 2007](https://www.nature.com/articles/nprot.2007.366).
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# 2. Tools installation 
+
+Follow `P2.Rmd` instructions if you need to install **[R](https://cran.r-project.org/)** and/or **[RStudio](https://rstudio.com/products/rstudio/download/#download)** for either Windows or Linux.
+
+### 2.1 Required R packages
+
+The following packages are required:
+
+```{r packages, eval = FALSE}
+install.packages("ggplot2")
+install.packages("dplyr")
+install.packages("ggrepel")
+install.packages("devtools")
+devtools::install_github("isglobal-brge/SNPassoc")
+install.packages("BiocManager")
+BiocManager::install(c("snpStats", "SNPRelate"))
+```
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# <i class = "fa fa-search"></i>Conducting an association study
+
+With this working example, we are going to illustrate how to perform a GWAS analysis including 100,000 SNPs using real data from a **case-control study**. Our phenotype of interest is **obesity** that has been created using body mass index (BMI) information of each individual. We start by loading genotype data that are in PLINK format (`obesity.bed`, `obesity.bim`, `obesity.fam` files). This data is available for download [here](https://mega.nz/#!hbBwEQRD!fZMCzsM-GrhoxIIW06tQlG_jy0pAe4WjBxH1nvVHygE).
+
+- **Binary BED file**: contains the genomic SNP data, whose values are encoded in two bits (homozygous normal 00, heterozygous 10, homozygous variant 11, missing 01).
+
+- **Text BIM file**: contains SNP annotations. Each row is a SNP and contains six columns: chromosome, SNP name, position in morgans, base-pair coordinates, allele 1 (reference nucleotide), allele 2 (alternative nucleotide)
+
+- **Text FAM file**: contains the subject's information. Each row is an individual and contains six variables: the family identifier (ID), individual ID, paternal ID, maternal ID, sex (1=male, 2=female, other=unknown), phenotypes. Covarites can be added in additonal columns.
+
+### 1. Prepare data
+
+**<i class="fa fa-cogs"></i> Create a working directory named `Project3` and create a folder named `data` and inside, `obesity` folder. **
+
+```{r, eval = FALSE}
+# bash code to create directories
+mkdir Project3
+cd Project3
+mkdir data
+cd data
+mkdir obesity
+
+```
+
+**<i class="fa fa-cogs"></i> Navigate to the `obesity` folder and download the [PLINK data](https://mega.nz/#!hbBwEQRD!fZMCzsM-GrhoxIIW06tQlG_jy0pAe4WjBxH1nvVHygE). Uncompress the zip file using `unzip`. **
+
+```{r, eval = FALSE}
+# bash code to download and uncompress the data
+mv ../../../obesity.zip .
+unzip obesity.zip
+```
+
+**<i class="fa fa-cogs"></i> PLINK data can be loaded into `R` with the `read.plink` function from `snpStats` [Bioconductor's package](https://www.bioconductor.org/packages/release/bioc/html/snpStats.html).**
+
+```{r read-plink-data}
+# Read PLINK data of the obestiy dataset
+colorectal.plink <-  read.plink(bed = "Project3_cancer/data/colorectal_cancer/colorectal.bed",
+                             bim = "Project3_cancer/data/colorectal_cancer/colorectal.bim",
+                             fam = "Project3_cancer/data/colorectal_cancer/colorectal.fam")
+```
+
+`obesity.plink` contains the fields `genotypes`, `map` and `fam` that correspond to the three uploaded files.
+
+```{r plink-info}
+# Get information contained in the object
+names(colorectal.plink)
+```
+
+The `genotypes` field contains the genotype data stored in a `snpMatrix` object (individuals in rows and SNPs in columns). Alleles are coded as 0, 1 and 2.
+
+```{r genotypes}
+# Get genotypes information
+colorectal.genotype <- colorectal.plink$genotypes
+colorectal.genotype
+```
+
+We have `nrow(obesity.genotype)` individuals genotyped, and a total of `ncol(obesity.genotype)` SNPs.
+
+The `fam` field contains the individual's family information in a `data.frame` object.
+
+```{r individuals}
+# Get individuals information
+individuals <- colorectal.plink$fam
+head(individuals)
+```
+
+Finally, the `map` field contains SNP annotation in a `data.frame`.
+
+```{r annotation}
+# Get annotation information
+annotation <- colorectal.plink$map
+head(annotation)
+```
+
+While some basic phenotype information is usually available in the `fam` field, a more complete phenotypic characterization (e.g. clinical or epidemiological data) of the sample is usually distributed in additional text files. In our example, the complete phenotype data is in a tab-delimited file that can be downloaded [here](https://mega.nz/#!BGZQwCLC!7tfYmBuJ4AbH84HYlp-WJ9zOCM4cvHMXKPSsTaz7wTY), that can be load using the `read.delim` function:
+
+```{r obesity}
+colorectal.phenotype <- read.delim("Project3_cancer/data/colorectal_cancer/colorectal.txt")
+head(colorectal.phenotype)
+```
+
+We have used simple `ggplot2` calls to visualy describe this dataset.
+```{r ggplot2}
+plot_gender <- ggplot(data = colorectal.phenotype, mapping = aes(x=sex))+
+  geom_bar(fill="red") +
+  theme_bw() +
+  labs(x= "Gender", y="Subjects")
+ggsave("plot_colorectal/plot_gender.jpeg", plot = plot_gender)
+
+plot_smoke <- ggplot(data = colorectal.phenotype, mapping = aes(x=smoke))+
+  geom_bar(fill="red") +
+  theme_bw() +
+  labs(x= "Smoking habits", y="Subjects")
+ggsave("plot_colorectal/plot_smoke.jpeg", plot = plot_smoke)
+
+plot_age <- ggplot(data = colorectal.phenotype, mapping = aes(x=age))+
+  geom_bar(fill="red") +
+  theme_bw() +
+  labs(x= "Age", y="Subjects")
+ggsave("plot_colorectal/plot_age.jpeg", plot = plot_age)
+```
+
+<img src="https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/description2019_11_20D18_0_15.png">
+
+`obesity.txt` file contains phenotypic information for a different set of individuals that overlap with those in the `obesity.genotype` object. Therefore, before analysis, we need to correctly merge and order the individuals across genomic and phenotypic datasets. The row names of `obesity.genotype` correspond to the individual identifiers (id) variable of `obesity.phenotype`. Consequently, we also rename the rows of `obesity.phenotype` with the `id` variable.
+
+```{r rename-rownames}
+# Rename the rownames with the id
+rownames(colorectal.phenotype) <- colorectal.phenotype$id
+head(colorectal.phenotype)
+```
+
+We can check if the row names of the datasets match:
+
+```{r check-order}
+# We check if the rownames of the two objects are identical
+identical(rownames(colorectal.phenotype), rownames(colorectal.genotype))
+```
+
+`FALSE` indicates that either there are different individuals in both objects or that they are in different order. This can be fixed by selecting common individuals using the `intersect` function.
+
+```{r fix-individuals}
+#miras que los ids estén tanto en fenotipo como genotipo, te quedas con los que son iguales y te lo ordena
+ids <- intersect(rownames(colorectal.phenotype), rownames(colorectal.genotype))
+genotype <- colorectal.genotype[ids, ]
+phenotype <- colorectal.phenotype[ids, ]
+identical(rownames(phenotype), rownames(genotype))
+individuals <- individuals[ids, ] #Miras que estos ids estén también en las familias
+```
+
+Then association analyses will be performed using `genotype` and `phenotype` data frames. But first we need to check if the SNPs and the individuals pass the quality control.
+
+### 2. Quality control of SNPs
+
+We now perform the quality control (QC) of genomic data at the SNP and individual levels, before association testing. Different measures can be used to perform QC of SNPs:
+
+1. **SNPs with high rate of missing** - tipically, markers with a call rate les than 95% are removed from association analyses.
+2. **Rare SNPs (e.g. having low minor allele frequency - MAF)** - markers with a low MAF (<5%) are usually filtered.
+3. **SNPs that do not pass the Hardy-Weinberg equilibrium (HWE) test**  - the significance threshold rejecting a SNPs for not being in HWE varies greatly between studies, but tipically a parsimonious threshoold of 0.001 may be considered. This values correspond to a $z$-score of ±3.3. Strictly speaking, HWE test should be applied to **controls** only.
+
+```{r snps-info}
+info.snps <- col.summary(genotype)
+head(info.snps)
+```
+
+We want to filter SNPs using the `Call.rate` information, the `MAF` and the `z.HWE`.
+
+```{r controls}
+# Controls are not obese subjects 
+controls <- phenotype$cascon == 0 & !is.na(phenotype$cascon) #que dentro de obese sean 0 (te devuelve true/false) y que no haya na (que no tenga not avaliable) te pone false
+genotype.controls <- genotype[controls, ] #lo que guardas es true false y vas mirando si ese numero de fila coincide y te quedas solo con los true
+info.controls <- col.summary(genotype.controls)
+nrow(genotype.controls)
+```
+
+We have a total of `r nrow(genotype.controls)` control individuals.
+
+```{r quality2}
+# Filter QC
+use <- info.snps$Call.rate > 0.95 &
+       info.snps$MAF > 0.05 &
+       abs(info.controls$z.HWE < 3.3) # This is only possible if we have controls, otherwise, we use info.snps    
+mask.snps <- use & !is.na(use)
+
+# We keep those SNPs that pass the QC
+genotype.qc.snps <- genotype[, mask.snps] #solo te quedas con los que son true
+genotype.qc.snps
+annotation <- annotation[mask.snps, ]
+
+# Original SNPs
+genotype
+# Filtered SNPs
+genotype.qc.snps
+```
+
+<i class="fa fa-info-circle"></i> It is a good practice to always repot the number of SNPs that have been removed after performing the QC from the association analyses. We can get this numbers:
+
+```{r snp-quality-report}
+# Number of SNPs removed for a bad call rate
+sum(info.snps$Call.rate < 0.95, na.rm = TRUE)
+
+# Number of SNPs removed for low MAF
+sum(info.snps$MAF < 0.05, na.rm = TRUE)
+
+# Number of SNPs removed that do not pass HWE
+sum(abs(info.controls$z.HWE > 3.3), na.rm = TRUE)
+
+# The total number of SNPs removed for any reason
+sum(!mask.snps)
+```
+
+From 100,000 SNPs, we keep `r ncol(genotype.qc.snps)`.
+
+### 3. Quality control of individuals
+
+QC of individuals, or biological samples, comprises four main steps: 
+
+1. **The identification of individuals with discordant reported and genomic sex**.
+2. **The identification of individuals with outlying missing genotype or heterozygosity rate**.
+3. **The identification of duplicated or related individuals**. 
+4. **The identification of individuals of divergent ancestry from the sample**.
+
+We start by removing individuals with sex discrepancies, large number of missing genotypes and outlying heterozygosity. The function `row.summary` returns the call rate and the proportion of called SNPs which are heterozygous per individual.
+
+```{r info-ind}
+info.indv <- row.summary(genotype.qc.snps)
+head(info.indv)
+```
+
+Gender is usually inferred from the heterozygosity of chromosome X. Males have an expected heterozygosity of 0 and females of 0.30. Chromosome X heterozygosity can be extracted using `row.summary` function and then plotted.
+
+<i class = "fa fa-info-circle"></i> Sometimes chromosome X is referred as chromosome 23. 
+
+```{r sex-discr}
+# Sex discrepancies
+genotype.X <- genotype.qc.snps[,annotation$chromosome=="23" & !is.na(annotation$chromosome)]
+
+info.X <- row.summary(genotype.X)
+info.X$gender <- phenotype$sex
+info.X$id <- phenotype$id
+
+# Plot with ggplot2
+ggplot(info.X, aes(y = Heterozygosity, x = id)) +
+  geom_point(aes(color=gender), alpha = 0.7) + 
+  labs(y = "Heterozygosity", x = "ID", color = "Gender") +
+  theme_minimal() + scale_color_manual(values = c("#FFE882", "#4DC4CC"))
+```
+
+The figure shows that there are some reported males with non-zero X-
+heterozygosity and females with zero X-heterozygosity. These samples are located in the `sex.discrep` object for latter removal.
+
+```{r sex-discr2}
+sex.discrep <- (info.X$gender == "Male" &
+                info.X$Heterozygosity > 0.2) |
+                (info.X$gender=="Female" &
+                 info.X$Heterozygosity < 0.2)
+```
+
+Now, we identify individuals with outlying heterozygosity from the overall genomic heterozigosity rate that is computed by `row.summary`. Heterozigosity, can also be computed from the statisitic:
+
+$$F = 1 - \frac{f(Aa)}{E(f(Aa))}$$
+
+where $f(Aa)$ is the observed proportion of heterozygous genotypes (Aa)of a given individual and $E(f(Aa))$ is the expected proportion of heterozygous genotypes. A subject's $E(f(Aa))$ can be computed from the MAF across all the subject's non-missing SNPs.
+
+```{r bad-het}
+MAF <- col.summary(genotype.qc.snps)$MAF
+callmatrix <- !is.na(genotype.qc.snps)
+hetExp <- callmatrix %*% (2*MAF*(1-MAF))
+hetObs <- with(info.indv,
+               Heterozygosity*(ncol(genotype.qc.snps))*Call.rate)
+info.indv$hetF <- 1 - (hetObs/hetExp)
+head(info.indv)
+```
+
+In the figure we compare F statistic and the Heterozygosity field ob-
+tained from `row.summary`.
+
+Individuals whose F-statistic is outside the band ±0.1 are considered sample outlyers and correspond to those having an heterozygosity rate lower than 0.32.
+
+```{r het-plot}
+ggplot(info.indv, aes(x = 1:nrow(info.indv), y = hetF)) + #1: no es 1 entre, simplemente te crea un vector y pone un punto en cada individuo
+  geom_point(aes(color = hetF > 0.1)) +
+  geom_hline(yintercept = 0.1, linetype = "dashed") + 
+  labs(y = "F-Heterozygosity", x = "ID", color = "F-heterozigosity > 0.1") +
+  theme_minimal() + scale_color_manual(values = c("#4DC4CC", "#582602"))
+```
+
+GWAS are typically studies that are based on population samples. Therefore, close familial relatedness between individuals is not representative of the sample. We therefore search individuals whose relatedness is higher than expected. The R package `SNPRelate` is used to perform identity-by-descent (IBD) analysis, computing kinship within the sample. The package requires a data in a GDS format that is obtained with the function `snpgdsBED2GDS`. In addition, IBD analysis requires SNPs that are not in LD (uncorrelated). The function `snpgdsLDpruning` iteratively removes adjacent SNPs that exceed an LD threshold in a sliding window.
+
+```{r transform-data}
+snpgdsBED2GDS("Project3_cancer/data/colorectal_cancer/colorectal.bed",
+              "Project3_cancer/data/colorectal_cancer/colorectal.fam",
+              "Project3_cancer/data/colorectal_cancer/colorectal.bim",
+              out="colorectalGDS"
+              )
+```
+
+We have created a file called `obesityGDS` in our working directory.
+
+```{r remove-data}
+# Open the file
+genofile <- snpgdsOpen("colorectalGDS")
+# Using a seed allows to reproduce the analysis
+set.seed(12345)
+snps.qc <- colnames(genotype.qc.snps)
+snp.prune <- snpgdsLDpruning(genofile,ld.threshold = 0.2, snp.id=snps.qc) #miras el desequilibrio de ligamiento
+```
+
+IBD coefficients can be computed by using the method of moments that is implemented in the function `snpgdsIDMoM`. The result of the analysis is a table indicating kinship among pairs of individuals.
+
+```{r IBD}
+snps.ibd <- unlist(snp.prune, use.names=FALSE)
+ibd <- snpgdsIBDMoM(genofile, kinship = TRUE,
+                    snp.id = snps.ibd,
+                    num.thread = 1)
+ibd.kin <- snpgdsIBDSelection(ibd)
+head(ibd.kin)
+```
+
+Let us check whether there are individuals who are candidate to be removed due to relatednss. A pair of individuals with higher than expected relatedness are considered with kinship score > 0.1.
+
+```{r remove-indv}
+ibd.kin.thres <- subset(ibd.kin, kinship > 0.1)
+head(ibd.kin.thres)
+```
+
+The ids of the individuals to be removed can be obtained by using a function that is called `related` and is available in the `SNPassoc` package:
+
+```{r }
+ids.rel <- related(ibd.kin.thres)
+ids.rel #Te quedas con un individuo de cada familia, eliminas a uno de los relacionados
+```
+
+Summing up, individuals with more than 5% missing genotypes, with sex discrepancies, F-heterozigosity absolute value > 0.1 and kinship coefficient > 0.1 are removed from the genotype and phenotype data.
+
+```{r qc-ind}
+ use <- info.indv$Call.rate > 0.95 &
+  abs(info.indv$hetF) < 0.1 &     # or info.inv$Heterozygosity < 0.32
+  !sex.discrep &
+  !rownames(info.indv)%in%ids.rel
+mask.indiv <- use & !is.na(use)
+genotype.qc <- genotype.qc.snps[mask.indiv, ]
+
+phenotype.qc <- colorectal.phenotype[mask.indiv, ]
+identical(rownames(phenotype.qc), rownames(genotype.qc))
+
+dim(phenotype)
+dim(phenotype.qc)
+```
+
+From `r nrow(phenotype)` individuals, we kept `r nrow(phenotype.qc)`. As before, we should report the individuals removed.
+
+```{r ind-quality-report}
+# Number of individuals removed to bad call rate
+sum(info.indv$Call.rate < 0.95)
+
+# Number of individuals removed for heterozygosity problems 
+sum(abs(info.indv$hetF)>0.1)
+
+# Number of individuals removed for sex discrepancies
+sum(sex.discrep)
+
+# Number of individuals removed to be related with others
+length(ids.rel)
+
+# The total number of individuals that do not pass QC
+sum(!mask.indiv)
+```
+
+### 4. Genome-wide association analysis
+
+Genome-wide association analysis involves regressing each SNP separately on our trait of interest. The analyses should be adjusted for clinical, environmental, and/or demographic factors as well as ancestral differences between the subjects. The analysis can be performed with a range of functions of the `snpStats` package.
+
+We first examine the unadjusted whole genome association of our obesity study:
+
+```{r gwas}
+# Perform a GWAS
+gwas <- single.snp.tests(cascon, data = phenotype.qc,
+                         snp.data=genotype.qc)
+# Create a dataframe with the results 
+gwasStats <- data.frame(SNP=annotation$snp.name, 
+                   CHR=annotation$chromosome,
+                   BP=annotation$position,
+                   P=p.value(gwas, 1))
+                    #    P=p.value(gwas.quant)) or gwas.adj if snp.rh.tests is used
+gwasStats <- subset(gwasStats, !is.na(CHR) & !is.na(P) & CHR!=24 & CHR!=25)
+head(gwasStats)
+```
+
+This `data.frame` is what we call the GWAS summary statistic file. It should have the following columns: the chromosome (in the `CHR` column), the position of the SNP on the chromosome (in the column `BP`), the p-value (in a column called `P`), and the SNP name (in a column named `SNP`).
+
+We can adjust the analysis by some covariates, for example, the smoking status of the subjects (note that the function is different, `snp.rhs.tests`):
+
+<i class="fa fa-info-circle"></i> A quantitative trait can also be analyzed setting the argument family equal to Gaussian.
+
+```{r adjusted}
+# Example of a GWAS adjusting by smoke
+gwas.adj <- snp.rhs.tests(cascon ~ smoke,  data = phenotype.qc,
+                         snp.data=genotype.qc, family = "Gaussian")
+
+# Example with a quantitative trait (age)
+# gwas.adj <- snp.rhs.tests(age ~ 1,  data = phenotype.qc,
+                         # snp.data=genotype.qc, family = "Gaussian")
+
+gwas.adj.Stats <- data.frame(SNP=annotation$snp.name, 
+                   CHR=annotation$chromosome,
+                   BP=annotation$position,
+                   P=p.value(gwas.adj))
+                   
+gwas.adj.Stats <- subset(gwas.adj.Stats, !is.na(CHR) & !is.na(P) & CHR!=24 & CHR!=25)
+head(gwas.adj.Stats)
+``` 
+
+## 5. Post-GWAS visualization and interpretation
+
+### <i class="fa fa-cogs"></i> Creating a Manhattan plot
+
+A useful way to summarize genome-wide association data is with a **Manhattan plot**. This type of plot has a point for every SNP or location tested with the position in the genome along the `x`-axis and the -log<sub>10</sub> p-value on the `y`-axis. 
+
+There are many ways to create a Manhattan plot: online tools, R packages (e.g. `manhattan` package), etc. However, these options often do not offer the customizability that we want in our visualization. For that reason, we can write our code in `ggplot2` to create a Manhattan plot.
+
+```{r gwasStats}
+head(gwasStats)
+```
+
+### Preparing the data
+
+Since the only columns we have indicating position are the chromosome number and the base pair position of the SNP on that chromosome, we want to combine those so that we have one column with position that we can use for the `x`-axis. So, what we want to do is to create a column with **cumulative base pair position** in a way that puts the SNPs on the first chromosome first, and the SNPs on chromosome 22 last. The followind code loop through the chromosomes and add to each base pair position the latest position from the previous chromosome. This will create a column in which the relative base pair position is the position as if it was stitched together. For each chromosome, we extract the largest base pair position, put it in a list, and then in a temporary variable, we add the length of the previous chromosomes together and add them to the relative base pair position in the current chromosome and save it in a column called `BPcum`.
+
+```{r calculate-cumulative-bp}
+# Run it
+nCHR <- length(unique(gwasStats$CHR))
+gwasStats$BPcum <- NA
+s <- 0
+nbp <- c()
+for (i in unique(gwasStats$CHR)){
+  nbp[i] <- max(gwasStats[gwasStats$CHR == i,]$BP)
+  gwasStats[gwasStats$CHR == i,"BPcum"] <- gwasStats[gwasStats$CHR == i,"BP"] + s
+  s <- s + nbp[i]
+}
+```
+
+We want the centre position of each chromosome. This position we’ll use later to place the labels on the `x`-axis of the Manhattan plot neatly in the middle of each chromosome. In order to get this position, we'll pipe the `gwasStats` dataframe into this `dplyr` function which we then ask to calculate the difference between the maximum and minimum cumulative base pair position for each chromosome and divide it by two to get the middle of each chromosome. 
+
+```{r center-position}
+# Get chromosome center positions for x-axis
+axisdf <- gwasStats %>%
+            group_by(CHR) %>%
+              summarize(center=(max(BPcum) + min(BPcum))/2)
+```
+
+Here, we choose to get a Bonferroni-corrected threshold, which is 0.05 divided by the number of SNPs in the summary statistics. 
+
+<i class="fa fa-info-circle"></i> Many scientists will use the "standard" threshold of 0.05 divided by 1 $\times$ 10<sup>-6</sup>, which is 5 $\times$ 10<sup>-8</sup>. 
+
+```{r threshold}
+# Bonferroni-corrected threshold
+significance <- 1e-04
+genomewideline <- 5e-08
+```
+
+### Visualize the data
+
+Let's build our Manhattan plot step by step. Each SNP will be one point on the plot. Therefore, we map in the `x`-axis the relative base pair position we calculated earlier (`BPcum`) and the -lo<sub>g10</sub> P-value in the `y`-axis (`-log10(P)`). Each SNP will be colored based on the chromosome (`CHR`).
+
+```{r}
+# Uncomment the code and fill the ??? with the proper variables
+
+manhattanPlot <- ggplot(gwasStats, aes(x = BPcum, y = -log10(P))) +
+ geom_point(aes(color=as.factor(CHR)))
+manhattanPlot
+```
+
+#### **<i class="fa fa-cogs"></i>** Improving our graph
+
+This already looks like a real Manhattan plot, however, there are several things we can improve:
+
+1. Add a custom `x`-axis with the name of the chromosomes (e.g. 1, 2, ...). For that, we use the `scale_x_continous` function, indicating in the `label` the name of the chromosme (`CHR`), and in the `breaks` the center point (`center`) we calculated earlier in the `axisdf` object.
+
+```{r eval=F}
+# Custom X axis
+
+ manhattanPlot <- manhattanPlot +
+ scale_x_continuous(label = axisdf$CHR, breaks= axisdf$center)
+ manhattanPlot
+
+```
+
+2. Add a title and change the x and y axis titles:
+
+```{r eval = F}
+# Plot and axis titles
+
+ manhattanPlot <- manhattanPlot + labs(title = "Colorectal cancer GWAS", x = "Chromosome", y = "p-value (-log10(P))", color = "Chromosome")
+ manhattanPlot
+
+```
+
+3. Add a genome-wide significant line using the significance calculated before:
+
+```{r eval = F}
+# Genome-wide significant line
+
+manhattanPlot <- manhattanPlot +
+  geom_hline(yintercept = -log10(1e-04), linetype = 2)
+  manhattanPlot
+
+```
+
+4. Customize the theme. For example, you can remove the grid or the legend.
+
+<i class = "fa fa-key"></i> Check StackOverflow to get to know how to [remove the legend](https://stackoverflow.com/questions/23682371/hide-a-legend-with-ggplot) or perform [other stuff...](https://stackoverflow.com/questions/tagged/ggplot2?sort=faq).
+
+```{r eval = F}
+# Add any function to customize your plot
+manhattanPlot <- manhattanPlot +
+  theme_minimal() +
+  theme (legend.position = "none")
+manhattanPlot
+```
+
+5. Add a custom palette. We can use a custom palette (`mypalette`). For that, we have to use the `scale_color_manual` function, because we will manually set the colours. Because the palette has 5 colours but we have 22 chromosmes, we are going to use simple R syntax to repeat the palette.
+
+```{r custom-palette}
+mypalette <- c("#E2709A", "#CB4577", "#BD215B", "#970F42", "#75002B") 
+```
+
+```{r eval = F}
+# Custom palette
+manhattanPlot <- manhattanPlot +
+  scale_color_manual(values = rep(mypalette, length(unique(gwasStats$CHR))))
+manhattanPlot
+
+```
+
+One finally thing we can do is to annotate the name of the significant SNPs. For that we can use the `geom_label_repel` function from the `ggrepel` library. 
+
+```{r eval=F}
+# Run it!
+manhattanPlot <- manhattanPlot +
+  geom_label_repel(data=gwasStats[gwasStats$P<significance,], aes(label=as.factor(SNP), alpha=0.7), size=5, force=1.3)
+manhattanPlot
+
+```
+
+<i class="fa fa-key"></i> A temptative Manhattan plot could look like [this](https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/ManhattanPlot2019_11_21D13_30_17.png).
+
+**Which SNPs are significant in this GWAS analysis?**
+
+<div style="background-color:#F0F0F0">
+##### &emsp;<i class="fas fa-comment-dots"></i> Answer:
+```{r}
+
+
+sig_snp <- gwasStats$P<significance
+
+sig_snp_info<- gwasStats[sig_snp, c(1,2)]
+
+write.table(sig_snp_info, file = "snp.txt", quote = FALSE, row.names = FALSE)
+```
+
+</div>
+
+## 5. Locus Zoom
+
+We can also visualize the GWAS results using [LocusZoom](locuszoom.org/genform.php?type=yourdata).
+
+For that, we need to save the `gwasStats` data.frame into a file:
+
+```{r save-data}
+write.table(gwasStats, file="gwasStats.txt", quote = FALSE, row.names = FALSE, sep = "\t")
+```
+
+1. Upload the file to LocusZoom, and fill the information according to your GWAS statistics file. In P-Value Column Name write P and Marker Column Name write SNP.
+
+<center>
+  <img src="https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/locuszoom2019_11_21D11_9_4.png" width = 80%>
+</center>
+
+2. In the Specify Region to Display, write the name of a significant SNP.
+
+3. Click Plot Data.
+
+**Are these SNPs overlapping protein-coding genes?**
+Some of them are, but some others they are not. For example, rs6550962, rs10027212, rs10519732, rs12912791, rs325413 and rs12912791 are overlapping.
+<div style="background-color:#F0F0F0">
+##### &emsp;<i class="fas fa-comment-dots"></i> Answer:rs10112382 no coincide, rs4733560 tampoco. Ir mirando
+
+</div>
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# <i class="fa fa-cogs"></i> Perform a GWAS analysis
+
+**Following the obesity GWAS example, perform a GWAS association study in either a coronary disease or colorectal cancer (one disease per group).**
+
+| Disease           | PLINK data                                                                         | Phenotype Data                                                                     | Qualitative variable          | Quantitative variable |
+|-------------------|------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|-------------------------------|-----------------------|
+| Coronary disease  | [Download](https://mega.nz/#!oSR2QIqZ!tRdstxnsy0XdmjFaOdkYw887l40iuqDnkoMgAEscQc0) | [Download](https://mega.nz/#!MbJkwYTQ!x7Lp6-7hv7rEoj036ip0V8Y_N3UzS28tf3OwkJbGAcQ) | No variable                   | bmi, age                   |
+| Colorectal cancer | [Download](https://mega.nz/#!xSRiXSrA!7XrAeqwVlar9dTd5zUcdjj0A8UCUXNWUGqc1heVRHFQ) | [Download](https://mega.nz/#!dfRADKab!2biueTmV-ujZtblY7eI2vGwMRHCe41JbRrhohU3uDPo) | cascon (cascon=0, cascon = 1) | bmi, age                   |
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# 3. Discussion
+
+**Do you think that the SNPs that we have found associated to a disease using GWAS design should be immediately considered for molecular studies? Why or why not?**
+
+<div style="background-color:#F0F0F0">
+##### &emsp;<i class="fas fa-comment-dots"></i> Answer: We don't think they should be immediately considered for molecular studies, but instead we should perform first a bibliography research to see the known relationship between the SNP and the importance for the disease.
+
+</div>
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# 4. Write an article in Overleaf 
+
+**Write a short article of your GWAS analysis. You can use the [Overleaf report sample](https://www.overleaf.com/read/vchzpswtycyg). The article should contain the following sections:**
+
+1. Short abstract
+2. Methods
+    + Packages and tools used
+    + Data description
+    + Quality control
+3. Results with figures
+4. Discussion (e.g.: genes have already been associated with the phenotype in other articles)
+4. Bibliography 
+5. Appendix with supplementary figures and the code (commented and with proper objects names)
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# 5. Upload your results to your GitHub
+
+Upload this `Rmd` document and the figures you have generated to your GitHub repository.
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# 6. References
+
+Practical based on Juan Ramón González' material available at [GitHub](https://github.com/isglobal-brge/TeachingMaterials/tree/master/Master_Bioinformatics).
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+<br>
