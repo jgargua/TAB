@@ -477,7 +477,7 @@ When we represent only the most differentialy expressed genes we can see that al
 ##### &emsp;<i class="fas fa-comment-dots"></i> Answer:
 | Underexpressed | Not differentially expressed | Overexpressed |
 |----------------|------------------------------|---------------|
-| 1 | 57 | 29 |
+| 1 | 58007 | 29 |
 </div>
 
 ### 4. Post RNA-seq analysis: visualization
