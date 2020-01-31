@@ -1,0 +1,1132 @@
+  ---
+title: "**P2 | Data exploration and visualization**<br><font color='#A8A8A8' size='5'>First steps with `ggplot2`</font>"
+author: "Current Topics in Bioinformatics"
+date: "13 November 2019"
+output:
+  html_document:
+    theme: yeti
+    css: https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/all.css
+    self_contained: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 6, fig.height = 4, fig.align = "center")
+library(ggplot2)
+```
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+## 1. Introduction
+**Data visualization** refers to the techniques used to communicate data or information by encoding it as visual objects (e.g., points, lines or bars) contained in **graphics**. 
+According to [Friedman (2008)](https://www.smashingmagazine.com/2008/01/monday-inspiration-data-visualization-and-infographics/) the main goal of data visualization is to **communicate information clearly** and **effectively** through graphical means. 
+
+According to Friedman, that does not mean that data visualization needs to look **_boring_** to be functional or extremely sophisticated to look **_beautiful_**. To convey ideas effectively, both aesthetic form and functionality need to go hand in hand. However, designers often fail to achieve a balance between form and function, creating gorgeous data visualizations which fail to serve their main purpose, communicate information ([Friedman 2008](https://www.smashingmagazine.com/2008/01/monday-inspiration-data-visualization-and-infographics/)).
+
+<div style = "background-color:#FFDAA1">
+<i class="fa fa-key"></i>  **Key concept**<br>
+Graphs are a great tool to explore the data and they are essential for presenting results. Their main goal is to communicate information clearly and efficiently to users. It is one of the steps in data analysis or data science. 
+</div>
+
+Each new visualization can give us **insights** about our data. Some of this **revealing information** may already be known (but perhaps not yet demonstrated), while other aspects may be completely new to us. The figure below represents the process of searching new perceptions in the data ([Aisch 2019](https://interactivos.lanacion.com.ar/manual-data/entender_los_datos_7.html)).
+
+<center>
+  <img src="https://bioinformatica.uab.cat/base/continguts/documents/documents.asp?link=documents\sgbcursos\documents\dataviz2019_11_4D10_30_45.png" width=40%>
+</center>
+
+#### P2 Learning outcomes
+
+* Learn the grammar of graphics of `ggplot2`
+* Create the most common bioinformatics graphs (scatter plots, line plots, bar plots, ...)
+* Distinguish graphic quality indicators
+  * Integrity
+  * Chartjunk
+  * Data-ink ratio
+* Learn the characteristics of effective graphic displays
+
+### 1.1 Practicals organization
+
+In this practical, we are going to use the [**RStudio**](https://rstudio.com/) integrated development environment (IDE) for R. R is a programming language for statistical computing and graphics.  
+
+<center>
+  <img src="https://d33wubrfki0l68.cloudfront.net/26639e1fec7fa314b8fe521d1e8f97de10ff12a8/66448/images/bandtwo2.png" width=80%>
+</center>
+
+The current document in which we are working is an **R Markdown** doccument. Similar to a Jupyter Notebook, R Markdown documents are fully reproducible and allow you to combine text, images and code --this time, R programming language.  
+
+To **render** a R Markdown document to a HTML file, you just need to click the `Knit` button that you'll see in the RStudio bar. This HTML file can be shared as a report.
+
+You don't need to render the whole document everytime you want to see the result of your R code. You can click in the `Run current chunk button` or use the keyboard shortcut `Ctrl`+`Alt`+`C` and the result of the code will appear below it.
+
+<center>
+  <img src="https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/chunk2019_11_6D9_14_8.png" width=60%>
+</center>
+
+You will see different icons through the document, the meaning of which is:
+
+<i class="fas fa-info-circle"></i>: additional or useful information<br>
+<i class="fas fa-search"></i>: a worked example<br>
+<i class="fa fa-cogs"></i>: a practical exercise<br>
+<i class="fas fa-comment-dots"></i>: a space to answer the exercise<br>
+<i class="fa fa-key"></i>: a hint to solve an exercise<br>
+<i class="fa fa-rocket"></i>: a more challenging exercise<br><br>
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# 2. Tools installation 
+
+We strongly recommend using a **Linux** operating system and get used to work with the **terminal**. In this practical though, we won't use it and there's almost no difference in using Windows RStudio or Linux RStudio.
+
+## 2.1 Installing R
+
+R programming language can be downloaded from [here](https://cran.rediris.es/), and is available for Windows, Linux and macOS.
+
+## 2.2 Installing RStudio
+
+RStudio is available to download from [here](https://rstudio.com/products/rstudio/download/?utm_source=downloadrstudio&utm_medium=Site&utm_campaign=home-hero-cta). You can easily install it in Windows, Linux and macOS.
+
+## 2.3 Installing a package
+
+R packages are collections of functions and/or data developed by the community.
+
+To install a package, we use the `install.packages()`
+function, indicating between quotes the name
+of the package we want to install. 
+
+### 2.3.1 Installing `ggplot2`
+
+`ggplot2` is a data visualization package for the statistical programming language R ([Wickham 2009](https://www.springer.com/gp/book/9780387981413)). It was created by Hadley Wickham, implementing  Leland Wilkinson's Grammar of Graphics —a general scheme for data visualization which breaks up graphs into semantic components ([Wilkinson 2010](https://onlinelibrary.wiley.com/doi/full/10.1002/wics.118)).
+
+To install the `ggplot2` package, use the following:
+
+> `install.packages("ggplot2")`
+
+## 2.4 Loading a package
+
+To load a package, we use the function `library()`, indicating the name of the library we want to load.
+
+In the case of `ggplot2`, you'll use:
+
+> `library("ggplot2")`
+
+You're ready to start creating graphs! 
+
+```{r example, echo = FALSE}
+# Simulate data
+set.seed(170513)
+n <- 5000
+d <- data.frame(a = rnorm(n))
+d$b <- .4 * (d$a + rnorm(n))
+
+# Compute first principal component
+d$pc <- predict(prcomp(~a+b, d))[,1]
+
+# Plot
+ggplot(d, aes(a, b, color = pc)) +
+  geom_point(shape = 16, size = 5, show.legend = FALSE, alpha = 0.4) +
+  theme_minimal() +
+  scale_color_gradient(low = "#0091FF", high = "#F0650E") + labs(x = "", y = "") +
+  scale_x_continuous(breaks = round(seq(-2,2, by = 1),0))
+```
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# 3. Quick introduction to R
+
+## 3.1 Loading data
+
+To **load data from a delimited text file**, we normally use the `read.table()` function, indicating the name of the file we want to load (including the directory if the file is not located in the same working directory as the R session). Furthermore, we can specify if the file has a header with `header = TRUE` (by default `FALSE`) or the file delimiter with `sep =` (by default `sep = "\t"`). 
+
+For example, for loading the content of `data.txt`
+file, which has a header and it’s a tab-delimited file, we will write:
+
+> `data <- read.table("data.txt", header = TRUE, sep = "\t")`
+
+Also, the `read.csv()` function allows opening files with a `.csv` format (comma-separated values data) and the `read.xlsx()` function of the `xlsx` package allows opening Microsoft Excel files.
+
+## 3.2 Data formats
+
+In R, the most **common data types** are:
+
+* **Logical**: logical values can take on one of two values: `TRUE`, T or `FALSE`, F
+* **Numeric**: consists of numbers such as integers (e.g. `1`, `-3`) or doubles (e.g. `0.5`, `-12.3`)
+* **Integer**: integer numbers, such as `2L` (the `L`
+tells R to store this as an integer)
+* **Character**: consist of numbers, letters or words delimited with quotes (e.g. `"AGT"`, `"2"`)
+
+<div style = "background-color:#FFDAA1">
+  <i class="fas fa-info-circle"></i> To know the data type, you can use the `class()` function.
+</div>
+
+```{r}
+type_list <- list(TRUE, 1.2, 10L, "a")
+sapply(type_list, class)
+```
+
+Elements of the previous data types may be combined to form **data structures**. The main data structures are:
+
+* **Vector**: consists of an ordered set of values of the same type and/or class (e.g. numeric, character,
+date, etc.).
+
+```{r}
+# A vector x of mode numeric
+x <- c(1, 2, 3)
+
+# A vector y of mode logical
+y <- c(TRUE, TRUE, FALSE, FALSE)
+
+# A vector z of mode character
+z <- c("Sarah", "Tracy", "Jon")
+```
+
+* **Matrices**: vectors indexed using two indices instead of one.
+
+```{r, eval = FALSE}
+# A 2 x 2 matrix
+matrix22 <- matrix(
+  c(1, 2, 3, 4),
+  nrow = 2,
+  ncol = 2)
+```
+
+* **Factors**: a collection of values that all come from a fixed set of possible values. A factor is similar
+to a vector, except that the values within a factor are limited to a fixed set of possible values.
+
+```{r}
+# A vector containing "dna" and "rna"
+factor_vector <- as.factor(c("rna", "dna", "dna", "rna"))
+str(factor_vector)
+```
+
+<div style = "background-color:#FFDAA1">
+  <i class="fas fa-info-circle"></i> **Remember to always transform categorical variables to a factor**. You can have a categorical variable as characters, like the previous example ("`dna`" and "`rna`") but also as numerical values (you can have groups "`1`", "`2`" and "`3`"). In this case you need to tell R to use numerical values as a factor, transforming them using the `as.factor()` function.
+</div>
+
+* **Lists**: a collection of data structures. The components of a list can be of any structure.
+
+```{r, , eval = FALSE}
+# A list
+x <- list(1, "a", TRUE, 1+4i)
+```
+
+* **Data.Frame**: a collection of vectors that all have the same length. This is like a matrix, except that
+each column can contain a different data type.
+The attributes of an object provide specific information about the object itself.
+
+```{r, , eval = FALSE}
+# A dataframe
+dat <- data.frame(id = letters[1:10], x = 1:10, y = 11:20)
+```
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# 4. Data visualization theory
+
+There is grounded theory about data visualization ([Ortiz 2014](https://tereom.github.io/est-computacional-2018/)). This section highlights the pioneering contribution of the work of **Edward Tufte** (1942--), American statistician and professor emeritus of political science, statistics, and computer science at Yale University. One of the central ideas of Tufte's work refers to the **removal of non-useful elements** in the graphics, as they distract attention from the explanatory elements.  He coined the word **chartjunk** to refer to this useless, non-informative, or information-obscuring elements ([Minguillon 2016](http://openaccess.uoc.edu/webapps/o2/handle/10609/57624)). In contrast, the concept of **excellence** was defined as the **communication of complex ideas with clarity, precision and efficiency** ([Minguillon 2016](http://openaccess.uoc.edu/webapps/o2/handle/10609/57624)). 
+
+# 4.1 Graphic quality indicators
+
+Applicable to any graphic. These are concrete and relatively objective guides to assess the quality of a
+graph ([Tufte, 2001](https://www.edwardtufte.com/tufte/books_vdqi)).
+
+<div style = "background-color:#FFDAA1">
+* **Graphical integrity**: refers to how accurately the visual elements represent the data. The lie factor, how much a graphic deviates from the actual data, should be minimized.
+* **Chartjunk**: minimize the use of graphic decoration that interferes with the interpretation of the data: 3D effect, patterns...
+* **Data-ink ratio**: maximize the data ink vs. total ink used to print the graphic.
+</div>
+
+# 4.1.1 Lie factor, chartjunk and pies
+
+<center>
+  <img style="padding: 0 15px; float: right;" src="https://bioinformatica.uab.cat/base/continguts/documents/documents.asp?link=documents\sgbcursos\documents\pies2019_11_4D11_52_30.jpg" width=25%>
+</center>
+
+The **lie factor** is the ratio of the size of an effect shown in the graphic to the size of the effect in the data. Ideally, the lie factor should be 1 (no distortion). 
+
+A **chartjunk** is an unnecessary or confusing visual element in graphs and are not necessary to comprehend the information represented on the graph or distract the the viewer from this information.
+
+A popular design that qualifies as chartjunk and introduce lie factors is the
+**3D pie**. In the figure, we can see how segment C looks bigger than B, although is not the case (lie factor). The reason is the variation in the perspective that does not correspond to variation in the data (chartjunk).
+
+If we correct by removing the 3D effect, the lie factor is reduced, but there are still elements that can improve the understanding of the graph: the relation
+between the colour, the quantification and the category. We can add tags as shown in the series on the right, but then: why not simply show the data
+in a table? What does the pie graph add to the interpretation? This could be
+more difficult if, for example, more categories are added.
+
+# 4.1.2  Data-ink ratio
+Maximizing the proportion of **data-ink** in our graphs has immediate benefits. The rule is: **if there is ink that
+does not represent variation in the data, or the removal of that ink does not represent loss of meaning,
+that ink must be removed**.
+
+$$ Data-ink\;ratio\;=\;\frac{Data-ink}{Total\;ink\;used\;to\;print\;the\;graphic}  $$
+According to the Tufte principle, the data must be displayed above all, so that everything that does not
+provide information, must be deleted (including background color, borders, grids, ...).
+
+<center>
+  <img src="https://bioinformatica.uab.cat/base/continguts/documents/documents.asp?link=documents\sgbcursos\documents\data2ink2019_11_4D11_52_18.jpg
+" width=80%>
+</center>
+
+# 4.2 Characteristics of effective graphic displays
+
+As we have previously introduced, Tufte defined the term excellence in data visualization as communicating complex ideas with clarity, precision and efficiency. A good visualization should:
+
+* Show the data
+* Induce the viewer to think about the substance rather than about methodology, graphic design, the technology of graphic production or something else
+* Avoid distorting what the data has to say (use fair axis, avoid using more than one `y`axis)
+* Present many numbers in a small space
+* Make large data sets coherent
+* Encourage the eye to compare different pieces of data
+* Reveal the data at several levels of detail, from a broad overview to the fine structure
+* Serve a reasonably clear purpose: description, exploration, tabulation or decoration
+* Be closely integrated with the statistical and verbal descriptions of a data set
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# 5. The grammar of graphics
+
+In a natural language, there are a series of rules that organize words into sentences, the grammar. [Wilkinson (2005)](https://www.springer.com/gp/book/9780387245447), created a grammar of graphics which offers us the basic elements to create them. 
+
+The **components** (or layers) of the grammar of graphics are: 
+
+* The **data** that you want to visualize
+* A set of **aesthetic mappings** (`aes`) describing how variables in the data are mapped to aesthetic
+attributes that you can perceive
+* The **scales** map values in the data space to values in an aesthetic space, whether it be colour, or size, or shape. Scales draw a legend or axes, which provide and inverse mapping to make it possible to read the original data values from the graph
+* **Statistical transformations** (`stat`), summarise data in many useful ways. For example, binning
+and counting observations to create a histogram, or summarising a 2d relationship with a linear
+model
+* **Geometric objects** (`geom`) represent what you actually see on the plot: points, lines, polygons,
+etc.
+* A **coordinate system** (`coord`) describes how data coordinates aremapped to the plane of the graphic. It also provides axes and grid lines to make it possible to read the graph. We normally use a Cartesian coordinate system, but a number of others are available, including polar coordinates and map projections
+* A **faceting** describes how to break up the data into subsets and how to display those subsets as small multiples
+
+<center>
+  <img src="https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/ggplot2layers2019_8_10D11_28_23.png" width=80%>
+</center>
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# 6.  First steps with `ggplot2` 
+## EMPIEZA PRÁCTICA
+
+The following examples will walk you through the basic components of the `ggplot2` grammar. The examples use data from the `datasets` package, which is already loaded by default in the `R` session, as well as some data sets loaded with `ggplot2` package. `ggplot2` requires data to be stored in **data frames** and in a **long format** (one observation per row and one variable per column):
+
+```{r}
+head(iris)
+class(iris)
+```
+
+----------------------------------------------------------------------------------
+
+## **<i class="fas fa-search"></i> Example 1** | Creating a scatter plot
+
+### **1a** | Basic scatter plot
+
+For the first problem we want to represent the **relationship** between the variables `Sepal.Width` and `Sepal.Length` from the `iris` data frame. This data frame a collection of data that quantifies the morphologic variation of **iris flowers** of three related species (setosa, versicolor and virginica).
+
+<center>
+  <img src="https://thegoodpython.com/assets/images/iris-species.png" width=80%>
+</center>
+
+<div style = "background-color:#FFDAA1">
+  <i class="fas fa-info-circle"></i> This famous (Fisher's or Anderson's) `iris` data set gives the measurements in centimeters of the variables sepal length and width and petal length and width, respectively, for 50 flowers from each of 3 species of iris. You can type `??iris` in the `R` console to read a description of the data.
+</div>
+
+To represent any graph in `ggplot2` we need two basic functions that are combined with a `+` sign:
+
+```{r scatter-ggplot2}
+ggplot(data = iris, mapping = aes(x = Sepal.Width, y = Sepal.Length)) +
+  geom_point()
+```
+
+The variables that we want to represent are wrapped within an `aes()` function, that specifies the **_mapping_** between the variables and the **_aesthetic attributes_** (in this case we map them to spatial positions, `x` and `y`). We call the variables directly by their names, because we also pass the entire data frame to the call with the data argument, so `ggplot` knows were to get them from. Finally, we need to add the **_geometric object_** we want to represent. In this case, points.
+
+### **1b** |  Represent extra variables
+
+Another variable in the data indicates the species (`Species`) it was measured. There are three species: setosa, versicolor and virginica.
+
+```{r table-species}
+table(iris$Species)
+```
+
+Let's say we want to represent the different types of species in different colours. In this case we want to use `Species` as a **categorical variable**, i.e.,  as a factor. By default, this variable is already a factor:
+
+```{r check class}
+class(iris$Species)
+```
+
+We use `Species` in the `colour` aesthetic:
+
+```{r groups-ggplot2}
+ggplot(data = iris, mapping = aes(x = Sepal.Width, y = Sepal.Length, colour = Species)) +
+  geom_point()
+```
+
+<div style = "background-color:#FFDAA1">
+<i class="fas fa-info-circle"></i> Note that `ggplot` adds a **legend** by default for all the variables that have been mapped to some aesthetic attribute. This way we can read all the variables without extra effort.
+</div>
+
+### <i class="fa fa-cogs"></i> Exercise
+
+Try mapping `Species` to another aesthetic attribute instead of `colour`, such as `shape`, `size`, `alpha`. Are you getting any warning message? Why?
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answer1.1}
+ggplot(data = iris, mapping = aes(x = Sepal.Width, y = Sepal.Length, shape = Species)) +
+  geom_point()
+ggplot(data = iris, mapping = aes(x = Sepal.Width, y = Sepal.Length, size = Species)) +
+  geom_point()
+ggplot(data = iris, mapping = aes(x = Sepal.Width, y = Sepal.Length, alpha = Species)) +
+  geom_point()
+
+# Alpha es transparencia. No están recomendados size o alpha para estos tipos de datos.
+```
+</div>
+
+----------------------------------------------------------------------------------
+
+## <i class="fas fa-search"></i> **Example 2** | Creating a bar plot
+
+For this second exercise we are going to use `mtcars` dataset, which contain information about the **fuel consumption and 10 aspects of automobile design and performance for 32 automobiles**.
+
+```{r}
+head(mtcars)
+class(mtcars)
+```
+
+<div style = "background-color:#FFDAA1">
+  <i class="fas fa-info-circle"></i> The data was extracted from the 1974 Motor Trend US magazine, and comprises fuel consumption and 10 aspects of automobile design and performance for 32 automobiles (1973–74 models). You can type `??mtcars` in the `R` console to read a description of the data.
+</div>
+
+One of the variables of interests in the data indicates the number of cylinders of the car engines (`cyl`). There are cars with 4, 6 or 8 cylinders.
+
+### **2a** | Basic bar plot
+
+We want to summarise this data in a simple **bar plot** representing the number of cars in each cylinder category; i.e., how many cars have 4, 6 or 8 cylinders. However, the number of cars with 4 cylinders is not a piece of information present in the data set, for example. To know the number it is necessary to count the rows where `cyl = 4`, and we are not going to do it <i class="fas fa-smile-wink"></i>.
+
+`ggplot2` is capable to do simple summary operations with the input variables, refered as **__statistical tranformations__**. One of them is to count the occurrences of each value in a variable, which is precisely what we want to do. And `geom_bar` function happen to use the `count` statistical transformation by default on the variable mapped to the `x` axis.
+
+The first thing that we are going to do is to check the class of the `cyl` variable:
+
+```{r class-cyl}
+# First we check the class of cyl
+class(mtcars$cyl)
+```
+
+We see that it's a numeric variable. In this case we want to use `cyl` as a categorical variable, distinguishing groups rather than indicating a value in a numerical continuous scale. For that, we need to change its class before giving it to `ggplot` using the `as.factor()` function.
+
+```{r factor-cyl}
+# We create a new variable in the dataframe, cyl_f, that is cyl converted to factor
+mtcars$cyl_f <- as.factor(mtcars$cyl)
+```
+
+Now we can create the bar plot:
+
+```{r barplot-ggplot2}
+ggplot(data = mtcars, mapping = aes(x = cyl_f)) +
+  geom_bar()
+```
+
+Imagine that we have already a table with the number of cars with each cylinder category. If we had a precomputed data frame with `cyl` and `number_of_cars` instead, we could pass `number_of_cars` variable to `geom_col` function instead of `geom_bar`, that by default takes the variables mapped to `x` and `y` without transformation. 
+
+```{r barplot-table}
+# Let's create the data frame
+counts_by_cyl_data_frame <- as.data.frame(table(mtcars$cyl))
+names(counts_by_cyl_data_frame) <- c("cyl", "number_of_cars")
+
+counts_by_cyl_data_frame
+
+ggplot(data = counts_by_cyl_data_frame, mapping = aes(x = cyl, y = number_of_cars)) +
+  geom_col()
+```
+
+<div style = "background-color:#FFDAA1">
+  <i class="fas fa-hand-point-up"></i> We'll use `geom_bar` if the dataset is not processed and we need to count the ocurrences of a category. If we have a processed dataset with the counts, we'll use `geom_col`.
+</div>
+
+### **2b** | Groups and position
+
+We have seen in the scatter plot example how to represent groups encoded in extra variables as colours. Say we now want to show transmission type (`am`) in the bar plot, in addition to the number of cylinders. We can map `am` to the filling colour of the bars, `fill` (`colour` aesthetic would change the edges of the rectangles). There are two types of transmission: `0` for automatic cars and `1` for manual cars.
+
+```{r groups-bar}
+# First we check the class of the variable
+class(mtcars$am)
+
+# We make am factor, and we can change the 0/1 notation for a more informative notation: automatic/manual
+mtcars$am_f <- factor(mtcars$am, levels = c(0, 1), labels = c("automatic", "manual"))
+
+# Plot
+ggplot(data = mtcars, mapping = aes(x = cyl_f, fill = am_f)) +
+  geom_bar()
+```
+
+Each geometric object in `ggplot2` also has a **__position__** argument that controls how groups are arranged. In `geom_bar` the default position is to stack the groups. We can change it for a side-by-side position with `position = "dodge"`.
+
+```{r position-bar-ggplot2}
+ggplot(data = mtcars, mapping = aes(x = cyl_f, fill = am_f)) +
+  geom_bar(position = "dodge")
+```
+
+### <i class="fa fa-cogs"></i> Exercise
+
+Update the plot above with the `"fill"` position adjustment instead of `"dodge"`. What it is doing?
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+```{r positions-ggplot2 answer2.1}
+ggplot(data = mtcars, mapping = aes(x = cyl_f, fill = am_f)) +
+  geom_bar(position = "fill")
+#Ha hecho las proporciones de cada una para ponerlo sobre 1.
+```
+
+</div>
+
+Update the previous plot to group by the variable `gear` instead of the transmission type (`am_f`). `gear` variable is the number of forward gear: cars can have 3, 4 and 5 gears. Check if you need to transform `gear` to a factor.
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+```{r positions-ggplot2 answer2.2}
+mtcars$gear_f<-as.factor(mtcars$gear)
+class(mtcars$gear_f) #[1] "factor"
+ggplot(data = mtcars, mapping = aes(x = cyl_f, fill = gear_f)) +
+  geom_bar(position = "dodge")
+#Si no ponemos gear como factor no te saber dividirlo en categorias porque para el es numerico.
+```
+
+</div>
+
+----------------------------------------------------------------------------------
+
+## <i class="fas fa-search"></i> **Example 3** | Showing the distribution of a variable
+
+### **3a** | Simple histogram
+
+Now we have a new data set called `diamonds` and we need to understand the distribution of some of its continuous variables. A good place to start is a histogram, that represents the number of observations in different ranges as bars. 
+
+
+```{r}
+head(diamonds)
+class(diamonds)
+```
+
+<div style = "background-color:#FFDAA1">
+<i class="fas fa-info-circle"></i> `diamonds` is a dataset containing the prices and other attributes of almost 54,000 diamonds. You can type `??diamonds` in the `R` console to read a description of the data.
+</div>
+
+The function that we need is called `geom_histogram()` and has the statistical transformation `bin` by default. In this case, `bin` divides the variable mapped to `x` in ranges and counts the number of values in each bin. The number of bins is controlled with the argument `binwidth`. In this example we show the distribution of the weights of diamonds (`carat`).
+
+```{r histogram}
+ggplot(data = diamonds, mapping = aes(x = carat)) +
+  geom_histogram(binwidth = 0.3)
+#Mira cuantas hay del 0 al 0,3 del 0,3 al 0,6 y así.
+```
+
+<div style = "background-color:#FFDAA1">
+<i class="fas fa-info-circle"></i> Note that histograms deal with _continuous_ variables while bar plots with _discrete_, but are sometimes [confused](https://www.google.com/search?q=histograms+and+bar+graphs+difference).
+</div>
+
+### **3b** | Multiple histograms
+
+The `diamonds` dataset contains more information about diamonds, such as the quality (`cut`) or the color (`color`).  To see the distribution of the weight we can try to map it to the filling `cut`:
+
+```{r histogram-fill}
+ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(binwidth = 0.3) 
+
+#Con fill=cut pintamos el histograma en función del cut.
+```
+
+Stacked histograms are difficult to interpret. We can use another position instead of the default "`stacked`" position. For example, using `position = "dodge"`.
+
+```{r histogram dodge}
+ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(position = "dodge", binwidth = 0.3)
+```
+
+But there's even a better option. `ggplot2` provides a simple way of creating small multiples or __facets__ with the function `facet_grid`:
+
+```{r facets}
+ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(position = "dodge", binwidth = 0.3) + 
+  facet_grid(cut ~ .)
+```
+
+
+### <i class="fa fa-cogs"></i> Exercise
+
+What happens if you change the order of the `facet_grid` elements, i.e., `(. ~ cut)`?
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+```{r diamonds-facets answer 3.1}
+ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(position = "dodge", binwidth = 0.3) + 
+  facet_grid(. ~ cut)
+#En función de donde está el cut corta por un lado u otro. si el cut está a la derecha corta por el x y si está a la izquierda por el y.
+```
+
+</div>
+
+
+Which is the best subplot configuration to compare the distributions and why?
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer: Si queremos comparar la distribución de las funciones es más facil la primera (cuando el eje de la x es igual para todos)
+
+</div>
+
+----------------------------------------------------------------------------------
+
+## <i class="fas fa-search"></i> **Example 4** | Customizing a plot
+
+### **4a** | Modify colours
+
+So far we have used the **default colour palettes** for all our representations. We may need to change them to make them accessible to **colourblind people**, match the colour palette of our project or give **meaningful values** (e.g., red for positive and blue for negative). We can control the exact mapping of a variable to an aesthetic attribute with the functions `scale_*`.
+
+In the following example we manually set the color of the five type of diamond qualities. You can use other color names checking the following [R color guide](http://www.stat.columbia.edu/~tzheng/files/Rcolor.pdf).
+
+```{r change-col-ggplot2}
+ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(position = "dodge", binwidth = 0.3) + 
+  facet_grid(cut ~ .) +
+  scale_fill_manual(values = c("sienna1", "orange", "lightseagreen", "orangered", "red4"))
+```
+
+<div style = "background-color:#FFDAA1">
+<i class="fas fa-info-circle"></i> Note that scale functions update both the aesthetic mappings in the plot and in the legend.
+</div>
+
+### **4b** | Change (or add) axis, legend and plot titles
+
+We may also need to add a **title** to the plot or change the **axis titles**. There are several options for that:
+* In `ggplot2`, axis and legend titles can be specified with `name` argument within a `scale_*` function
+* The title can be changed with `+ ggtitle("Title name")`
+* You can also use the convenience function `labs()`, with `fill = ""` you will set a new legend title and `title = ""` a new title. See the working example:
+
+```{r titles-ggplot2}
+# We save the common part of the plot in a variable and then we can add more components with the "+" sign
+p <- ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(position = "dodge", binwidth = 0.3) + 
+  facet_grid(cut ~ .)
+  
+# Option A:
+p + scale_fill_manual(values = c("sienna1", "orange", "lightseagreen", "orangered", "red4"), name = "Quality") +
+  scale_x_continuous(name = "Weight of the diamond") + 
+  ggtitle("Diamond weight variation")
+
+# Option B:
+p + scale_fill_manual(values = c("sienna1", "orange", "lightseagreen", "orangered", "red4")) +
+   labs(title = "Diamond weight variation", x = "Weight of the diamond", fill = "Quality")
+```
+
+### **4c** | Change theme
+
+The appearence of `ggplot2` plots is controlled by the **themes**. The default `ggplot2` theme has a gray background and "*is designed to put the data forward yet make comparisons easy*". You can change the general appearence by choosing a different theme with `theme_*` functions. There are [eight different themes](https://ggplot2.tidyverse.org/reference/ggtheme.html) available. The following example uses the "black and white" theme (`theme_bw()`):
+
+```{r theme}
+ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(position = "dodge", binwidth = 0.3) + 
+  facet_grid(cut ~ .) +
+  scale_fill_manual(values = c("sienna1", "orange", "lightseagreen", "orangered", "red4"), name = "Quality") +
+  scale_x_continuous(name = "Weight of the diamond") + 
+  ggtitle("Diamond weight variation") +
+  theme_bw()
+```
+
+### <i class="fas fa-cogs"></i> Exercise
+
+Using the following code, try other `scale_fill_*` functions in `ggplot2` with pre-defined palettes, such as `scale_fill_hue()`, `scale_fill_brewer()`, `scale_fill_viridis_d()` (default) and `scale_fill_grey()`. Which palette would you use to ensure that colourblind people can distinguish the colours, `scale_fill_hue()` or `scale_fill_viridis_d()`?
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answer4.1}
+ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(position = "dodge", binwidth = 0.3) + 
+  facet_grid(cut ~ .) + scale_fill_hue()
+  # scale_fill_...  # try other scale_fill
+ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(position = "dodge", binwidth = 0.3) + 
+  facet_grid(cut ~ .) + scale_fill_viridis_d()
+ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(position = "dodge", binwidth = 0.3) + 
+  facet_grid(cut ~ .) + scale_fill_brewer()
+ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(position = "dodge", binwidth = 0.3) + 
+  facet_grid(cut ~ .) + scale_fill_grey()
+#Va cambiando el color de los cuadraditos y las barras. 
+
+#Utilizaria la pleta scale_fill_viridis_d() para que las personas daltonicas la vean bien.
+```
+
+</div>
+
+Try `subtitle = ""`, `caption =""` and `tag =""` arguments from the `labs()` function. What are they for?
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answer4.2}
+ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(position = "dodge", binwidth = 0.3) + 
+  facet_grid(cut ~ .) + labs(subtitle = "Title graphic", caption = "Here caption", tag = "Graphic")
+
+#Estos argumentos de label permite escribir en diferentes partes del gráfico. tag es un titulo grande, subtitle es más pequeño y caption esta abajo a la derecha.
+```
+
+</div>
+
+Which theme of the [eight availables](https://ggplot2.tidyverse.org/reference/ggtheme.html) do you think that maximises the data-ink ratio?
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answer 4.3}
+ggplot(data = diamonds, mapping = aes(x = carat, fill = cut)) +
+  geom_histogram(position = "dodge", binwidth = 0.3) + 
+  facet_grid(cut ~ .) +
+  theme_bw() # theme that maximises the ink-ratio
+# theme_minimal()
+```
+
+</div>
+
+----------------------------------------------------------------------------------
+
+## <i class="fas fa-info-circle"></i> Saving the plots
+
+There are three ways to save a plot to a file (from easy to difficult):
+
+A. Export button from `RStudio` plot panel
+
+B. `ggsave` function from `ggplot2` package
+```{r ggsave, eval = FALSE}
+p <- ggplot(data = iris, mapping = aes(x = Sepal.Width, y = Sepal.Length)) + geom_point()
+ggsave(filename = "plot.png", plot = p, width = 6, height = 4) # In inches by default
+```
+
+C. Opening > Ploting > Closing a graphic device
+```{r dev, eval = FALSE}
+png(filename = "plot1.png", width = 600, height = 400, res = 150) # In pixels by default
+p
+dev.off()
+
+#Aunque ponga null lo esta haciendo
+```
+
+Plots can be saved using different image file formats. Option **A** gives you the format options in a drop list, option **B** guesses the format from the filename extension (e.g. `plot.png`), and in option **C** the function that is used to open the graphic device determines the format of the output (in the example `png()`).
+
+The main formats can be classified into:
+
+- Raster/bitmat formats, where information is stored in pixels and have a maximum resolution.
+    + __PNG__: extension .png, supports transparent background, good compression, doesn't lose quality
+    + __JPEG__: extensions .jpg and .jpeg, very good compression, used in personal photography but suffers from quality degradation with repeated modifications
+    + __TIFF__: extensions .tif and .tiff, preferred format for professional printing
+- Vector formats, where information is encoded in geometric shapes that can be rendered at any size without losing resolution. 
+    + __SVG__: extension .svg, standard for vector graphics, requires `svglite` package
+- Hybrid
+    + __PDF__: can contain both vector graphics and raster images
+
+### <i class="fas fa-cogs"></i> Exercise
+
+Save the plot `p` in a raster and a vector format with the same size using `ggsave()` (e.g.: `width = 600, height = 400, res = 150`). What differences do you observe when you zoom in them?
+
+<i class="fas fa-info-circle"></i> Note: svg devices require `svglite` R package and other system libraries (`libcairo2-dev` and `libfontconfig1-dev`). Skip the exercise if you get an error!
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answer 5.1}
+ggsave(filename = "plot_jpeg.jpeg", plot = p, width = 600, height = 400, units = "mm") # In inches by default
+ggsave(filename = "plot_svg.svg", plot = p, width = 6, height = 4) # In inches by default
+
+#Uno se pixela (jpeg) y el otro no (svg).
+```
+
+</div>
+
+----------------------------------------------------------------------------------
+
+## <i class="fa fa-rocket"></i> Wrap up exercise
+
+If for representing a scatter plot we use `geom_point()`, a bar plot `geom_bar()` ... could you guess how to represent a **line** plot with `ggplot2` syntax?
+
+- Represent how `unemploy` variable changes over time (`date` variable) from `economics` dataset with a line plot using `ggplot2` syntax
+- Modify axis names and add a title
+- Use a theme
+- Save the plot to a file using a raster image format (png)
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r wrap-exercise-line-plot}
+plot_economics <- ggplot(data = economics, aes(x = date, y = unemploy)) +
+  geom_line(colour = "blue") +
+  labs(title = "Evolution of unemployment", x= "Years", y="unemployment")+
+  theme_bw()
+ggsave(filename = "plot_economics.png", plot = plot_economics, width = 6, height = 4)
+
+```
+
+</div>
+
+<i class="fa fa-key"></i> The final image should look like this:
+
+<center>
+<img src="https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/plot2019_11_5D10_50_1.png" width=50%>
+</center>
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# 7. Analyzing P1 data
+
+In the Practical 1 we generate several files containing interesting information... but reading numbers doesn't look very appealing. Now that we know how to create scatter plots, bar plots and line plots... shall we try representing our data?
+
+The files used in the next examples are:
+
+- **Mapping statistics** (step 7.2): `sorted.depth.txt.gz`
+- **VCF statistics** (step 8.2): substitution types (you need to manually extract this data from `file.vcf.gz.stats` file)
+- **Diversity statistics** (step 9): `out.windowed.pi` and `out.snpden`
+- **VEP statistics** (step 10): `txt` file downloaded from the VEP web service
+
+----------------------------------------------------------------------------------
+
+## **<i class="fas fa-pencil-alt"></i> Graphic 1** | Creating a scatter plot for the coverage
+
+We generated a file from the sorted  BAM file with the read depth for all positions, i.e., how many reads are overlapping the genomic position, `sorted.depth.txt.gz`, available for download [here](https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/depth2019_11_6D10_16_25.txt).
+
+We can read the file by typing:
+
+```{r readSorted}
+readDepth <- read.table("Data/sorted.depth.txt.gz", sep = '\t', header = FALSE)
+```
+
+As we can see, this file does not have a header, but we can manually add it using:
+
+```{r header}
+colnames(readDepth) <- c("chr", "position", "depth")
+head(readDepth)
+```
+
+### <i class="fas fa-cogs"></i> Exercise
+
+Modify the code to generate the figure of `scatter-ggplot2` chunk (a scatter plot) to represent in a point plot the coverage (`depth`) against the position (`position`). 
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answerP1.1}
+ggplot(data = readDepth, mapping = aes(x = position, y = depth)) +
+  geom_point()
+```
+
+</div>
+
+We can colour the points conditionally according to a coverage value, e.g.: 20. Simply add `color = depth < 20` inside the `aes()` call of `ggplot2()`. 
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answerP1.2}
+ggplot(data = readDepth, mapping = aes(x = position, y = depth, 
+                                       color = depth < 20)) +
+  geom_point()
+```
+
+</div>
+
+With your knowledge, try to:
+- Change the color of the dots using `+ scale_colour_manual()` as we did in `change-col-ggplot2` chunk, coloring the dots as red and black, for example.
+- Use nicer labels, change the legend name, and add a title. (<i class="fa fa-key"></i>: Hint: use `labs(color = "Legend title")` instead of `fill` to change the legend name)
+- Use a theme
+- Anything extra you want to try
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answerP1.3}
+plot_depth <- ggplot(data = readDepth, mapping = aes(x = position, y = depth, color = depth < 20)) +
+  geom_point() +
+  scale_colour_manual(values = c("black", "red")) + 
+  labs(title = "Read depth along the chromosome 2 region", x= "Position of chromosome 2", y="Read depth", color = "Coverage < 20") +
+    theme_bw()
+
+## Guardamos el gráfico para subirlo a github
+ggsave(filename = "plot_depth.jpeg", plot = plot_depth, width = 6, height = 4)
+```
+
+</div>
+
+<i class="fa fa-key"></i> The temptative figure should look like this:
+
+<center>
+  <img src = "https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/depth2019_11_5D12_2_56.png" width = 70%>
+</center>
+
+----------------------------------------------------------------------------------
+
+## **<i class="fas fa-pencil-alt"></i> Graphic 2** | Creating a bar plot for the VCF statistics
+
+We can extract the **Substitution types** from the `file.vcf.gz.stats` file:
+
+<center>
+  <img src = "https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/substitutions2019_11_5D12_9_36.png" width = 70%>
+</center>
+
+For that, just copy the lines starting with `ST` in a new file. The sample file can be downloaded [here](https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/ST2019_11_5D12_11_13.txt).
+
+<i class = "fa fa-rocket"></i> You can extract this information from the terminal by simply writing:
+
+`grep "^ST" file.vcf.gz.stats > ST.txt`
+
+Once you have the file, we can read it on R:
+
+
+```{r ST}
+st <- read.table("Data/IBS_ST.txt", sep='\t', header=FALSE)
+
+head(st)
+```
+
+As we can see, this file does not have a header, but we can manually add it using:
+
+```{r header2}
+
+colnames(st) <- c("ST", "ID", "type", "count")
+head(st)
+```
+
+### <i class="fas fa-cogs"></i> Exercise
+
+Modify the code to generate the figure of `barplot-table` chunk (bar plot) to represent in a bar plot how many substitutions there are:
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answerP1.4}
+plot_snp <- ggplot(data = st, mapping = aes(x = type, y = count)) + geom_col(fill='orange') +
+  labs(title = "Substitutions", x= "Type of substitution", y="Total   number") +
+    theme_bw()
+
+## Guardamos el gráfico 
+ggsave(filename = "plot_snp_IBS.png", plot = plot_snp, width = 6, height = 4)
+  
+```
+
+</div>
+
+Try to do the same graph but using the **InDel distribution** information, also available in the `file.vcf.gz.stats` file. You can download the file from [here](https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/indel2019_11_5D12_17_36.txt).
+
+<i class = "fa fa-rocket"></i> You can extract this information from the terminal by simply writing:
+
+`grep "^IDD" file.vcf.gz.stats > indel.txt`
+
+If you need to change the header, use the following vector: `c("IDD", "ID", "length", "count")`.
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answerP1.5}
+#Guardamos los datos en un objeto y le ponemos nombre a las columnas.
+indels <- read.table("Data/IBS_Indel.txt", sep='\t', header=FALSE)
+colnames(indels) <- c("IDD", "ID", "length", "count")
+head(indels)
+
+#Hacemos un plot con las longitudes y lo guardamos
+plot_indels <- ggplot(data = indels, mapping = aes(x = length, y = count)) +  geom_col(fill = "green") +  labs(title = "Indel length distribution", x="Indel length", y = "Total number") +  theme_bw()
+
+ggsave(filename = "plot_indels_IBS.png", plot = plot_indels, width = 6, height = 4)
+```
+
+</div>
+
+As before, with your knowledge, try to add any modification you consider (change the theme add a title, ...)
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answerP1.5A}
+#Pintamos el gráfico de dos colores, en función de si es una inserción o una delección.
+plot_indels_difcol <- ggplot(data = indels, mapping = aes(x=length, y = count, fill = length < 0)) + 
+  geom_col() +
+  scale_fill_manual(values = c("blue", "green")) +
+  labs(title = "Indel length distribution", x="Indel length", y = "Total number", color ="Length < 0") + 
+  theme_bw()
+
+#Guardamos el gráfico
+ggsave(filename = "plot_indels_IBS_2colores.png", plot = plot_indels_difcol, width = 6, height = 4)
+```
+
+</div>
+
+<i class="fa fa-key"></i> The temptative figures should look like this:
+
+<center>
+  <img src = "https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/stats2019_11_5D12_27_34.png" width = 60%>
+</center>
+
+----------------------------------------------------------------------------------
+
+## **<i class="fas fa-pencil-alt"></i> Graphic 3** | Creating a line plot for the diversity statistics
+  
+Finally, we can anlyze the nucleotide diversity that is in the `out.windowed.pi` file. If you don't have it, you can downloaded it from [here](https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/pi2019_11_5D12_35_42.txt).
+
+Once you have the file, we can read it on R:
+
+```{r pi, eval = F}
+pi <- read.table("Data/out.windowed.pi", sep = '\t', header=TRUE)
+head(pi)
+```
+
+In this case, the file has a header so it's ready to be used for plotting.
+
+### <i class="fas fa-cogs"></i> Exercise
+
+Modify the code to generate the figure of the Wrap up exercise, `wrap-exercise-line-plot` chunk (line plot) to represent in a line plot the nucleotide diversity (`PI`) against the position (`BIN_START`). 
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answerP1.6}
+plot_pi <- ggplot(data = pi, aes(y = PI, x = BIN_START)) +
+  geom_line(colour = "blue") +
+  labs(title = "Nucleotid diversity along the chromosome 2 region", x= "Position", y="Nucleotide diverity")+
+  theme_bw()
+plot_pi
+
+#Guardamos plot
+ggsave(filename = "plot_pi_IBS.png", plot = plot_pi, width = 6, height = 4)
+```
+
+</div>
+
+Try to do other line plots and represent the SNP density (`VARIANTS/KB` column of `out.snpden` file) or the SNP count (`SNP_COUNT` column of `out.snpden` file). If you don't have this file, you can download it from [here](https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/snpDensity2019_11_5D12_46_19.txt).  
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answerP1.7}
+snp <- read.table(file = "Data/out.snpden", sep='\t', header=TRUE)
+head(snp)
+
+### VARIANTS.KB
+plot_snp <- ggplot(data = snp, mapping = aes(x = BIN_START, y = VARIANTS.KB)) + 
+  geom_line(colour = "purple") +
+  labs(title = "SNP density along the chromosome 2 region", x= "Position", y="SNP density")+
+  theme_bw()
+plot_snp
+
+#Guardamos el plot
+ggsave(filename = "plot_snp_variants.kb.png", plot = last_plot(), width = 6, height = 4)
+
+
+### SNP_COUNT
+plot_snp_count <- ggplot(data = snp, mapping = aes(x = BIN_START, y = SNP_COUNT)) + 
+  geom_line(colour = "red") +
+  labs(title = "SNP density along the chromosome 2 region", x= "Position", y="SNP Count")+
+  theme_bw()
+plot_snp_count
+
+#Guardamos el plot
+ggsave(filename = "plot_snp_count.png", plot = last_plot(), width = 6, height = 4)
+
+  
+```
+
+</div>
+
+As before, with your knowledge, try to add any modification you consider (change the theme add a title, ...)
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answerP1.7A}
+#Ya esta hecho arriba.
+```
+
+</div>
+
+<i class="fa fa-key"></i> The temptative figures should look like this:
+
+<center>
+  <img src = "https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/nuc2019_11_5D12_41_19.png" width = 60%>
+</center>
+
+----------------------------------------------------------------------------------
+
+## <i class="fa fa-rocket"></i> Wrap up exercise: analyze VEP data
+
+Finally, with your knowledge, try to make a figure to analyze the VEP information: for example, try to do a bar plot representing the functional consequence of SNPs (`Consequence`) or the type of genomic element is affecting (`BIOTYPE`). The file can be downloaded from [here](https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/vep2019_11_6D10_29_7.txt).
+
+Note that this file already have a header.
+
+<i class="fa fa-key"></i> If you need to rotate the `x`-axis labels to facilitate its reading, as in the temptative figure, check this [StackOverflow post](https://stackoverflow.com/questions/1330989/rotating-and-spacing-axis-labels-in-ggplot2).
+
+<div style="background-color:#F0F0F0">
+##### <i class="fas fa-comment-dots"></i> Answer:
+
+
+```{r answerP1.8}
+
+## CONSEQUENCE
+vep <- read.table(file = "Data/IBS.vep.txt", sep = '\t', header = FALSE)
+head(vep)
+
+plot_cons_ibs <- ggplot(data = vep, mapping = aes(x = V4)) +
+  geom_bar(fill = "orange") + 
+  labs(title="VEP Results. Functional consequence of SNPs", x = "Consequences", y= "Number of SNPs") + 
+  theme_bw()
+plot_cons_ibs <- plot_cons_ibs + theme(axis.text.x = element_text(size = 5, angle = 60, hjust = 1))
+  
+ggsave(filename = "plot_IBS_vep_cons.jpeg", plot = plot_cons_ibs, width = 6, height = 4)
+
+
+## BIOTYPE
+plot_IBSvep_biot <- ggplot (data = vep, mapping = aes(x = V10)) +
+  geom_bar(fill = "#FF9999") +
+  labs(title="VEP Results. Type of the genomic elements", x = "Genomic element", y= "Number of SNPs") + theme_bw()
+
+plot_IBSvep_biot <- plot_IBSvep_biot + theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+
+ggsave(filename = "plot_IBSvep_biot.jpeg", plot = last_plot(), width = 6, height = 4)
+
+```
+
+</div>
+
+<i class="fa fa-key"></i> A temptative figure could look like this:
+
+<center>
+  <img src = "https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/vep2019_11_6D10_35_43.png" width = 60%>
+</center>
+
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+
+# 8. Upload your results to your GitHub
+
+Upload this Rmd document and the figures you have generated to your GitHub repository.
+
+<div style="background-color: #86CBBB; 1px; height:3px " ></div>
+<br>
