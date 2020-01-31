@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Current Topics in Bioinformatics" />
+
+<meta name="date" content="2019-12-04" />
+
+<title>P4 | Solving real cases in genomics Finding differentiantly expressed genes in thyroid cancer</title>
+
+<script src="p4_tiroides_files/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="p4_tiroides_files/bootstrap-3.3.5/css/yeti.min.css" rel="stylesheet" />
+<script src="p4_tiroides_files/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="p4_tiroides_files/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="p4_tiroides_files/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="p4_tiroides_files/navigation-1.1/tabsets.js"></script>
+<link href="p4_tiroides_files/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="p4_tiroides_files/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+<link rel="stylesheet" href="https:\\cdnjs.cloudflare.com\ajax\libs\font-awesome\5.11.2\css\all.css" type="text/css" />
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore"><strong>P4 | Solving real cases in genomics</strong><br><font color='#A8A8A8' size='5'>Finding differentiantly expressed genes in thyroid cancer</font></h1>
+<h4 class="author">Current Topics in Bioinformatics</h4>
+<h4 class="date">4 December 2019</h4>
+
+</div>
+
+
+<div style="background-color: #86CBBB; 1px; height:3px ">
+
+</div>
+<div id="introduction" class="section level2">
+<h2>1. Introduction</h2>
+<p><strong>RNA-seq</strong> is a recent approach to carry out expression profiling using high-throughput sequencing (HTS) technologies. Pre-2008, microarrays were predominantly used, but because the sequencing costs have decreased, RNA-seq became the preferred option to simultaneously measure the expression of tens of thousands of genes for multiple samples.</p>
+<p>In this tutorial we walk through a gene-level RNA-seq differential expression analysis using <strong>Bioconductor</strong> packages to find genes over- or under-expressed in cancer patients.</p>
+<div id="experimental-data" class="section level3">
+<h3>1.1 Experimental data</h3>
+<p>The <a href="https://www.cancer.gov/about-nci/organization/ccg/research/structural-genomics/tcga"><strong>Cancer Genome Atlas</strong></a> (<strong>TCGA</strong>) is a collaboration between the National Cancer Institute (NCI) and the National Human Genome Research Institute (NHGRI) that has generated comprehensive, multi-dimensional maps of the key genomic changes in 33 types of cancer. The TCGA dataset, comprising more than two petabytes of genomic data, has been made publically available, and this genomic information helps the cancer research community to improve the prevention, diagnosis, and treatment of cancer.</p>
+<p><a href="https://jhubiostatistics.shinyapps.io/recount/"><strong>Recount</strong></a> is an online resource consisting of RNA-seq gene and exon counts for different studies, including TCGA data. From there, we can download the RNA-seq data of different cancer types that we will use in this practical:</p>
+<table>
+<thead>
+<tr class="header">
+<th><strong>Cancer</strong></th>
+<th><strong>Download</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Brain</td>
+<td><a href="http://duffel.rail.bio/recount/v2/TCGA/rse_gene_brain.Rdata">Link</a></td>
+</tr>
+<tr class="even">
+<td>Breast</td>
+<td><a href="http://duffel.rail.bio/recount/v2/TCGA/rse_gene_breast.Rdata">Link</a></td>
+</tr>
+<tr class="odd">
+<td>Cervix</td>
+<td><a href="http://duffel.rail.bio/recount/TCGA/rse_gene_cervix.Rdata">Link</a></td>
+</tr>
+<tr class="even">
+<td>Colorectal</td>
+<td><a href="http://duffel.rail.bio/recount/TCGA/rse_gene_colorectal.Rdata">Link</a></td>
+</tr>
+<tr class="odd">
+<td>Prostate</td>
+<td><a href="http://duffel.rail.bio/recount/TCGA/rse_gene_prostate.Rdata">Link</a></td>
+</tr>
+<tr class="even">
+<td>Ovary</td>
+<td><a href="http://duffel.rail.bio/recount/v2/TCGA/rse_gene_ovary.Rdata">Link</a></td>
+</tr>
+<tr class="odd">
+<td>Uterus</td>
+<td><a href="http://duffel.rail.bio/recount/v2/TCGA/rse_gene_uterus.Rdata">Link</a></td>
+</tr>
+<tr class="even">
+<td>Thyroid</td>
+<td><a href="http://duffel.rail.bio/recount/v2/TCGA/rse_gene_thyroid.Rdata">Link</a></td>
+</tr>
+<tr class="odd">
+<td>Skin</td>
+<td><a href="http://duffel.rail.bio/recount/v2/TCGA/rse_gene_skin.Rdata">Link</a></td>
+</tr>
+<tr class="even">
+<td>Esophagus</td>
+<td><a href="http://duffel.rail.bio/recount/v2/TCGA/rse_gene_esophagus.Rdata">Link</a></td>
+</tr>
+</tbody>
+</table>
+<p>The practical concist on a worked example using data from <strong>pleural cancer</strong>. Each group must select a cancer type from the table to perform their own differential expression analysis.</p>
+<div id="p4-learning-outcomes" class="section level4">
+<h4>P4 Learning outcomes</h4>
+<ul>
+<li>Data manipulation (P1)</li>
+<li>Descriptive analysis of the data (P1)</li>
+<li>Methods to normalize RNA-seq data</li>
+<li>Perform statistical tests to find which genes are differentially expressed in different human cancers</li>
+<li>Enrichment analysis</li>
+<li>Visualize the results (P2)</li>
+</ul>
+</div>
+</div>
+<div id="practicals-organization" class="section level3">
+<h3>1.2 Practicals organization</h3>
+<p>In this practical, we are going to use the <a href="https://rstudio.com/"><strong>RStudio</strong></a> integrated development environment (IDE) for R. R is a programming language for statistical computing and graphics.</p>
+<p>You will see different icons through the document, the meaning of which is:</p>
+<p> <i class="fas fa-info-circle"></i>: additional or useful information<br>  <i class="fas fa-search"></i>: a worked example<br>  <i class="fa fa-cogs"></i>: a practical exercise<br>  <i class="fas fa-comment-dots"></i>: a space to answer the exercise<br>  <i class="fa fa-key"></i>: a hint to solve an exercise<br>  <i class="fa fa-rocket"></i>: a more challenging exercise<br><br></p>
+<div style="background-color: #86CBBB; 1px; height:3px ">
+
+</div>
+</div>
+</div>
+<div id="tools-installation" class="section level1">
+<h1>2. Tools installation</h1>
+<p>Follow <code>P2.Rmd</code> instructions if you need to install <strong><a href="https://cran.r-project.org/">R</a></strong> and/or <strong><a href="https://rstudio.com/products/rstudio/download/#download">RStudio</a></strong> for either Windows or Linux.</p>
+<div id="required-r-packages" class="section level3">
+<h3>2.1 Required R packages</h3>
+<p>Bioconductor has many packages supporting analysis of high-throughput sequence data, including RNA-seq. The packages that we will use in this tutorial include core packages maintained by the Bioconductor core team for importing and processing raw sequencing data and loading gene annotations.</p>
+<pre class="r"><code>install.packages(&quot;ggplot2&quot;)
+install.packages(&quot;BiocManager&quot;)
+  BiocManager::install(c(&quot;SummarizedExperiment&quot;, &quot;DESeq2&quot;, &quot;org.Hs.eg.db&quot;, &quot;biomaRt&quot;, &quot;edgeR&quot;, &quot;tweeDEseq&quot;, &quot;GOstats&quot;))</code></pre>
+<div style="background-color: #86CBBB; 1px; height:3px ">
+
+</div>
+</div>
+</div>
+<div id="conducting-an-rna-seq-analysis" class="section level1">
+<h1><i class = "fa fa-search"></i>Conducting an RNA-seq analysis</h1>
+<p>With this worked example, we are going to illustrate how to perform an RNA-seq expression analysis on RNA-seq data from patients diagnosed with mesothelioma (pleural cancer). The goal is to compare the transcriptomic profile of patients in an early tumoral stage with ones in an advanced stage of this disease. The objective is to find differential expressed in this type of cancer.</p>
+<p>The data is available in a <strong>Ranged Summarized Experiment</strong> (RSE) format. It is a matrix-like container where rows represent ranges of interest and columns represent samples (with sample data summarized as a <code>data.frame</code>).</p>
+<div id="prepare-data" class="section level3">
+<h3>1. Prepare data</h3>
+<p><strong><i class="fa fa-cogs"></i> Create a working directory named <code>Project4</code> and create a folder named <code>data</code> and inside, <code>pleuralCancer</code> folder. </strong></p>
+<pre class="r"><code># bash code to create directories
+mkdir Project4
+cd Project4
+mkdir data
+cd data
+mkdir thyroidCancer
+cd thyroidCancer</code></pre>
+<p><strong><i class="fa fa-cogs"></i> Navigate to the <code>pleuralCancer</code> folder and download the <a href="http://duffel.rail.bio/recount/v2/TCGA/rse_gene_pleura.Rdata">RSE data</a> for pleura cancer . </strong></p>
+<p><i class="fa fa-key"></i> This time you can use the <code>wget</code> function in the Linux terminal to download the file!</p>
+<pre class="r"><code># bash code to download and uncompress the data
+# wget http://duffel.rail.bio/recount/v2/TCGA/rse_gene_thyroid.Rdata</code></pre>
+<p><strong><i class="fa fa-cogs"></i> RSE data can be loaded into <code>R</code> with the <code>load()</code> function.</strong></p>
+<p><i class="fa fa-key"></i> Remember to change the working directory to properly load the data if it’s necessary:</p>
+<pre class="r"><code># wget() to know the current working directory
+# setwd(&quot;~/Descargas/Project4&quot;) will change the current directory to the Project4 folder inside the Descargas folder
+getwd()</code></pre>
+<pre><code>## [1] &quot;C:/Users/Judit/Desktop/TAB FINAL/P4/tiroides&quot;</code></pre>
+<pre class="r"><code>setwd(&quot;C:/Users/Judit/Desktop/TAB FINAL/P4/Project4&quot;)
+# Read RSE data of the cancer experiment
+load(file = &quot;data/thyroidCancer/rse_gene_thyroid.Rdata&quot;)</code></pre>
+<p>An object called <code>rse_gene</code> will be in your R environment.</p>
+<p>Exploring the data using the <code>dim()</code> function, we see that there are 58037 genes (number of rows) analyzed in a cohort of 572 patients with cancer (number of columns).</p>
+<p>The variable <code>gdc_cases.diagnoses.tumor_stage</code> which is inside the <code>rse_gene</code> object contains information of the tumoral stage (i.e.: not reported, stage i, stage ii, stage iii, stage iv, stage iva, stage ivc). We can use this information to create a new variable in the <code>rse_gene</code> object called <code>GROUP</code> distinguishing “<em>early</em>” and “<em>late</em>” tumours. Early tumours are those in stages i and ii, while late tumours those in stages iii and iv.</p>
+<p>The following code will add an additional column <code>GROUP</code> to the meta-data to organize the cancer stages:</p>
+<pre class="r"><code>stage &lt;- rse_gene$gdc_cases.diagnoses.tumor_stage
+
+# id list of early tumours
+ids.early &lt;-grep(paste(&quot;stage i$&quot;, &quot;stage ia$&quot;,&quot;stage ib$&quot;,&quot;stage ic$&quot;, &quot;stage ii$&quot;, &quot;stage iia$&quot;,&quot;stage iib$&quot;, &quot;stage iic$&quot;,sep=&quot;|&quot;), stage)
+
+# id list of late tumours
+ids.late &lt;-grep(paste(&quot;stage iii$&quot;, &quot;stage iiia$&quot;, &quot;stage iiib$&quot;,&quot;stage iiic$&quot;, &quot;stage iv$&quot;, &quot;stage iva$&quot;,&quot;stage ivb$&quot;, &quot;stage ivc$&quot;,sep=&quot;|&quot;), stage)
+
+# create an empty column named GROUP
+colData(rse_gene)$GROUP &lt;-rep(NA, ncol(rse_gene))
+# add early for those patients with tumours at stages i-ii
+colData(rse_gene)$GROUP[ids.early] &lt;- &quot;early&quot;
+# add late for those patients with tumours at stages iii-iv
+colData(rse_gene)$GROUP[ids.late] &lt;- &quot;late&quot;</code></pre>
+<center>
+<img src = "https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/plot12019_11_25D10_49_26.png" wight = 40%>
+</center>
+<p><i class="fa fa-question-circle"></i> <strong>Can you reproduce the previous figure using the following <code>data.frame()</code>?</strong></p>
+<pre class="r"><code># create dataframe
+dataGroups &lt;- data.frame(Stage = rse_gene$gdc_cases.diagnoses.tumor_stage, Group = rse_gene$GROUP)
+
+# ggplot2 plot
+ggplot(data = dataGroups, mapping = aes(x = Stage, fill = Group )) + labs(x = &quot;Stage&quot;, y = &quot;Number of patients&quot;) +
+  geom_bar()</code></pre>
+<p><img src="p4_tiroides_files/figure-html/data-frame-fig-1.png" width="576" style="display: block; margin: auto;" /></p>
+<p>It is important to remove all patients whose stage of the cancer was not recorded. We can check if it’s necessary in the pleura thyroid dataset using the <code>table()</code> function:</p>
+<pre class="r"><code># Check if the status is NA
+naData &lt;- is.na(rse_gene$GROUP)
+table(naData)</code></pre>
+<pre><code>## naData
+## FALSE  TRUE 
+##   570     2</code></pre>
+<p>As we can see, all patients have information because all the results are <code>FALSE</code> when we check if something “<em>is na?</em>”. But if we are dealing with some <code>TRUE</code> results (i.e., there’s no data for some patients) –&gt; it’s the case for thyroid cancer (true = 2), we can remove it as:</p>
+<pre class="r"><code># After removing
+dim(rse_gene)</code></pre>
+<pre><code>## [1] 58037   572</code></pre>
+<pre class="r"><code># Remove NA
+rse_gene &lt;- rse_gene[, !naData]
+dim(rse_gene)</code></pre>
+<pre><code>## [1] 58037   570</code></pre>
+<p>We can summarize individuals in each category as “early” and “late” using the <code>table()</code> function. We can see that there are more than two times patients in the late stage than in the early stage. –&gt; contrary to thyroid cancer = two times more early stage than late stage</p>
+<pre class="r"><code># summary of the patients
+table(rse_gene$GROUP)</code></pre>
+<pre><code>## 
+## early  late 
+##   384   186</code></pre>
+<p>After exploring a bit the data, we can now get the <strong>read counts</strong> data. It can be retrieved using the <code>assay()</code> function.</p>
+<pre class="r"><code># save the count data
+counts &lt;- assay(rse_gene, &quot;counts&quot;)
+counts[1:5, 1:2]</code></pre>
+<pre><code>##                    E2E857AB-E18D-41F8-8090-14CD0956D472
+## ENSG00000000003.14                               253114
+## ENSG00000000005.5                                   288
+## ENSG00000000419.12                               165189
+## ENSG00000000457.13                               110598
+## ENSG00000000460.16                                59325
+##                    3BE08ABD-953D-4440-BF17-AA654E6381B7
+## ENSG00000000003.14                               435480
+## ENSG00000000005.5                                   240
+## ENSG00000000419.12                               274419
+## ENSG00000000457.13                               167195
+## ENSG00000000460.16                                84108</code></pre>
+<p>The data related to the <strong>phenotype</strong> of the patients can also be retrieved using the <code>colData()</code> function:</p>
+<pre class="r"><code># save the phenotype data
+phenotype &lt;- colData(rse_gene)
+phenotype[1:5, 1:2]</code></pre>
+<pre><code>## DataFrame with 5 rows and 2 columns
+##                                          project    sample
+##                                      &lt;character&gt; &lt;logical&gt;
+## E2E857AB-E18D-41F8-8090-14CD0956D472        TCGA        NA
+## 3BE08ABD-953D-4440-BF17-AA654E6381B7        TCGA        NA
+## 0DBC5E6B-7BBA-4083-9F99-2BC19D75F4E1        TCGA        NA
+## 10AD6BD1-FDB7-4C49-821E-C03B946FF92D        TCGA        NA
+## 8709CFA2-0F90-4A18-B5EF-56D1D60A7947        TCGA        NA</code></pre>
+<p>We need to check that the same individuals are found both in the <code>counts</code> dataset and in the <code>phenotype</code> dataset.</p>
+<pre class="r"><code># check if the same individuals are found in the datasets
+identical(colnames(counts), rownames(phenotype))</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<p>Because the result is <code>TRUE</code>, it means that we have the same individuals in both datasets. If the result were <code>FALSE</code>, we would need to only keep those individuals in common in both datasets. For that, we can use the <code>intersect</code> function.</p>
+<pre class="r"><code># save a vector with the id of the individuals in common in both datasets
+individualsCommon &lt;- intersect(colnames(counts),rownames(phenotype))
+# filter the count dataset to keep only the individuals in the vector
+counts &lt;- counts[, individualsCommon]
+# filter the phenotype dataset to keep only the individuals in the vector
+phenotype &lt;- phenotype[individualsCommon ,]</code></pre>
+<p>In this case, we still have the 570 individuals.</p>
+<p>Finally, the <strong>gene information</strong> can be retrived using the <code>rowData()</code> function:</p>
+<pre class="r"><code># save the annotation data
+annotation &lt;- rowData(rse_gene)
+annotation</code></pre>
+<pre><code>## DataFrame with 58037 rows and 3 columns
+##                               gene_id bp_length          symbol
+##                           &lt;character&gt; &lt;integer&gt; &lt;CharacterList&gt;
+## ENSG00000000003.14 ENSG00000000003.14      4535          TSPAN6
+## ENSG00000000005.5   ENSG00000000005.5      1610            TNMD
+## ENSG00000000419.12 ENSG00000000419.12      1207            DPM1
+## ENSG00000000457.13 ENSG00000000457.13      6883           SCYL3
+## ENSG00000000460.16 ENSG00000000460.16      5967        C1orf112
+## ...                               ...       ...             ...
+## ENSG00000283695.1   ENSG00000283695.1        61              NA
+## ENSG00000283696.1   ENSG00000283696.1       997              NA
+## ENSG00000283697.1   ENSG00000283697.1      1184           HSFX3
+## ENSG00000283698.1   ENSG00000283698.1       940              NA
+## ENSG00000283699.1   ENSG00000283699.1        60         MIR4481</code></pre>
+<p>We have information for a total of 58037 genes.</p>
+<p><i class="fa fa-question-circle"></i> <strong>Can you explore which information is available for each gene?</strong></p>
+<div style="background-color:#F0F0F0">
+<h5 id="answer"> <i class="fas fa-comment-dots"></i> Answer:</h5>
+<p>To visualize the information we write head(annotation) at the console and see the results as a table. We can see 3 columns:</p>
+<ul>
+<li><p>gene_id, the ensembl gene id on NSG format</p></li>
+<li><p>bp_length, the gene length in bp</p></li>
+<li><p>symbol, the common name of the gene</p></li>
+</ul>
+</div>
+<p><i class="fa fa-question-circle"></i> <strong>Write a short summary of the information you have available (e.g., total number of individuals, filtered individuals, individuals by stage, number of genes, …)</strong></p>
+<div style="background-color:#F0F0F0">
+<h5 id="answer-1"> <i class="fas fa-comment-dots"></i> Answer:</h5>
+<p>Total number of individuals: 572</p>
+<p>Filtered individuals: 570. We filtered out two individuals because they didn’t have enough information.</p>
+<p>Individuals by stage: 384 early stage, 186 in the late stage. So we have almost double the individuals in the early stafe than in the late stage.</p>
+<p>Number of genes: 58037 annotated genes related with cancer in total.</p>
+</div>
+</div>
+<div id="normalization" class="section level3">
+<h3>2. Normalization</h3>
+<p>Why is it necessary to <strong>normalize</strong> RNA-seq data?</p>
+<ol style="list-style-type: decimal">
+<li>The number of counts is related to sequencing depth</li>
+</ol>
+<p><em>Accounting for sequencing depth is necessary for comparison of gene expression between samples. In the example below, each gene appears to have doubled in expression in Sample A relative to Sample B, however this is a consequence of Sample A having double the sequencing depth.</em></p>
+<center>
+<img src = "https://hbctraining.github.io/DGE_workshop/img/normalization_methods_depth.png" width = 60%>
+</center>
+<ol start="2" style="list-style-type: decimal">
+<li>The number of counts is related to transcript length</li>
+</ol>
+<p><em>Accounting for gene length is necessary for comparing expression between different genes within the same sample. In the example, Gene X and Gene Y have similar levels of expression, but the number of reads mapped to Gene X would be many more than the number mapped to Gene Y because Gene X is longer.</em></p>
+<center>
+<img src = "https://hbctraining.github.io/DGE_workshop/img/normalization_methods_length.png" width = 30%>
+</center>
+<ol start="3" style="list-style-type: decimal">
+<li>The number of counts is proportional to the mRNA expression level</li>
+</ol>
+<p><em>A few highly differentially expressed genes between samples, differences in the number of genes expressed between samples, or presence of contamination can skew some types of normalization methods. Accounting for RNA composition is recommended for accurate comparison of expression between samples, and is particularly important when performing differential expression analyses</em>.</p>
+<center>
+<img src = "https://hbctraining.github.io/DGE_workshop/img/normalization_methods_composition.png" width = 60%>
+</center>
+<p>Information retrieved from <a href="https://hbctraining.github.io/DGE_workshop/lessons/02_DGE_count_normalization.html">Introduction to DGE</a>.</p>
+<p><em>The aim of normalization is to remove systematic technical effects that occur in the data to ensure that technical bias has minimal impact on the results</em> (<a href="https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-3-r25">Robinson and Oshlack, 2010</a>).</p>
+<p>There are different methods to normalize the counts (for a review see <a href="https://academic.oup.com/bib/article/19/5/776/3056951">Evans et al., 2017</a>). We are going to focus in <strong>two types</strong>:</p>
+<ol style="list-style-type: decimal">
+<li><strong>RPKM</strong> (<a href="https://www.nature.com/articles/nmeth.1226">Mortazavi et al., 2008</a>) – Reads Per Kilobase Million. This method corrects for the sequencing depth and the gene length. It’s a non-sophisticated normalization method. Counts are divided by the transcript length (kb) times the total number of millions of mapped reads:</li>
+</ol>
+<p><span class="math display">\[ RPKM = \frac{\frac{number\;of\;reads\;in\;region}{region\;length\times10^3}}{total\;reads\times10^6}\]</span></p>
+<ol start="2" style="list-style-type: decimal">
+<li><strong>TMM</strong> (<a href="https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-3-r25">Robinson and Oshlack, 2010</a>) – Trimmed Mean of M values. This method was developed to address this issue: <em>The proportion of reads attributed to a given gene in a library depends on the expression properties of the whole sample rather than just the expression level of that gene.</em> Therefore, the method accounts for sequencing depth, RNA composition, and gene length.</li>
+</ol>
+<div style="background-color:#FFDAA1">
+<p><i class="fa fa-info-circle"></i> Both methods allows comparisons between genes within a sample, but only TMM is recommended for between sample comparisons and differential expression analyses.</p>
+</div>
+<p>The <strong>MA-plots</strong> are used to check whether normalization is needed or not. There is a function in the <code>edgeR</code> package designed to create such a plot, the <code>maPlot()</code> function:</p>
+<pre class="r"><code>maPlot(counts[,1],
+       counts[,2],
+       pch=19,
+       cex=.5,
+       ylim=c(-8,8),
+       allCol=&quot;darkgray&quot;,
+       lowess=TRUE,
+       xlab=expression(A == log[2] (sqrt(S1/N %.% S2/N))),
+       ylab=expression(M == log[2](S1/N)-log[2](S2/N)))
+grid(col=&quot;black&quot;)
+title(&quot;Raw data&quot;)</code></pre>
+<p><img src="p4_tiroides_files/figure-html/maPlot-row-1.png" width="576" style="display: block; margin: auto;" /></p>
+<p>This plot represents the log-fold change (M-values, i.e. the log of the ratio of level counts for each gene between two samples) against the log-average (A-values, i.e. the average level counts for each gene across the two samples). From a MA-plot one can see if normalization is needed or not.</p>
+<p>One expects that the vast majority of genes are not differentially expressed between individual, thus having a symmetrical distribution on the plot with most of the genes at the 0 (<code>y</code> = 0). A lowess fit (red line) is plotted underlying a possible trend in the bias related to the mean expression.</p>
+<div id="rpkm-normalization" class="section level4">
+<h4>2.1 RPKM normalization</h4>
+<p>We can normalize read counts using the RPKM normalization simply applying the previous formula.</p>
+<pre class="r"><code># length of the gene
+geneLength &lt;- annotation$bp_length
+
+# RPKM normalization method
+counts.rpkm &lt;- t(t(counts/geneLength*1000)/colSums(counts)*1e6)
+
+counts.rpkm[1:5,1:2]</code></pre>
+<pre><code>##                    E2E857AB-E18D-41F8-8090-14CD0956D472
+## ENSG00000000003.14                           7.95976982
+## ENSG00000000005.5                            0.02551104
+## ENSG00000000419.12                          19.51800781
+## ENSG00000000457.13                           2.29155950
+## ENSG00000000460.16                           1.41789262
+##                    3BE08ABD-953D-4440-BF17-AA654E6381B7
+## ENSG00000000003.14                          11.57441241
+## ENSG00000000005.5                            0.01796774
+## ENSG00000000419.12                          27.40406174
+## ENSG00000000457.13                           2.92788184
+## ENSG00000000460.16                           1.69898404</code></pre>
+<pre class="r"><code>maPlot(counts.rpkm[,1],
+       counts.rpkm[,2],
+       pch=19,
+       cex=.5,
+       ylim=c(-8,8),
+       allCol=&quot;darkgray&quot;,
+       lowess=TRUE,
+       xlab=expression( A==log[2] (sqrt(S1/N%.%S2/N))),
+       ylab=expression(M==log[2](S1/N)-log[2](S2/N)))
+grid(col=&quot;black&quot;)
+title(&quot;RPKM&quot;)</code></pre>
+<p><img src="p4_tiroides_files/figure-html/rpkm-visualization-1.png" width="576" style="display: block; margin: auto;" /></p>
+</div>
+<div id="tmm-normalization" class="section level4">
+<h4>2.2 TMM normalization</h4>
+<p>TMM normalization method is implemented in the <code>tweeDEseq</code> Bioconductor package, inside the <code>normalizeCounts()</code> function.</p>
+<pre class="r"><code># TMM normalization method
+counts.tmm &lt;- normalizeCounts(counts, method = &quot;TMM&quot;)</code></pre>
+<pre><code>## Using edgeR-TMM normalization.</code></pre>
+<pre><code>## Calculating normalization factors with the TMM method.</code></pre>
+<pre><code>## Estimating common dispersion.</code></pre>
+<pre><code>## Estimating tagwise dispersions.</code></pre>
+<pre><code>## Calculating effective library sizes.</code></pre>
+<pre><code>## Adjusting counts to effective library sizes using tagwise dispersions.</code></pre>
+<pre class="r"><code>counts.tmm[1:5,1:2]</code></pre>
+<pre><code>##                    E2E857AB-E18D-41F8-8090-14CD0956D472
+## ENSG00000000003.14                               296828
+## ENSG00000000005.5                                   338
+## ENSG00000000419.12                               193718
+## ENSG00000000457.13                               129699
+## ENSG00000000460.16                                69570
+##                    3BE08ABD-953D-4440-BF17-AA654E6381B7
+## ENSG00000000003.14                               323942
+## ENSG00000000005.5                                   178
+## ENSG00000000419.12                               204134
+## ENSG00000000457.13                               124372
+## ENSG00000000460.16                                62566</code></pre>
+<pre class="r"><code>maPlot(counts.tmm[,1],
+       counts.tmm[,2],
+       pch=19, cex=.5,
+       ylim=c(-8,8),
+       allCol=&quot;darkgray&quot;,
+       lowess=TRUE,
+       xlab=expression( A==log[2] (sqrt(S1/N%.%S2/N))),
+       ylab=expression(M==log[2](S1/N)-log[2](S2/N)))
+grid(col=&quot;black&quot;)
+title(&quot;TMM&quot;)</code></pre>
+<p><img src="p4_tiroides_files/figure-html/tmm-visualization-1.png" width="576" style="display: block; margin: auto;" /></p>
+<p><strong>Discuss with a colleague the following: </strong></p>
+<ul>
+<li><strong>Do you observe any improvement when comparing the Raw data against the RPKM normalization?</strong></li>
+<li><strong>And when comparing the Raw data and the TMM method?</strong></li>
+<li><strong>Which is the best normalization method in this case?</strong></li>
+</ul>
+<center>
+<img src="https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/normalization2019_11_26D12_52_14.png" width=80%>
+</center>
+<div style="background-color:#F0F0F0">
+<h5 id="answer-2"> <i class="fas fa-comment-dots"></i> Answer:</h5>
+<ul>
+<li><p>We can’t observe any improvement. If we compare the raw data with RPKM we can see that the normalization hasn’t helped, it has made it worse. The red line is even further away from 0 in the RPKM plot. This might be because this method isn’t recommended when analyzing different samples.</p></li>
+<li><p>Comparing the raw data with the TMM method we can see an improvement, the red line is now more accurately over the the y = 0 line, because it normalizes both in the sample and between samples. We can see some noise in both ends of the line, and that could be improved but we haven’t done those steps.</p></li>
+<li><p>In this case, the TMM method would be better to normalize the data, even if it is not perfect</p></li>
+</ul>
+</div>
+</div>
+</div>
+<div id="differential-expression-analysis" class="section level3">
+<h3>3. Differential expression analysis</h3>
+<p>The R package <code>DESeq2</code> allows researchers to test differential gene expression analysis based on the negative binomial distribution (<a href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-014-0550-8">Love, et al., 2014</a>).</p>
+<p>The starting point of a <code>DESeq2</code> analysis is a count matrix with one row for each gene and one column for each sample. The data is <strong>unnormalized reads count</strong>, because this package has its own normalization method.</p>
+<p>This function requires the <code>SummarizedExperiment</code> object and the design, which in this case is given in the variable <code>GROUP</code> because we want to compare early vs. late tumor stages.</p>
+<pre class="r"><code># stage of each patient
+pheno.stage &lt;- subset(phenotype, select=GROUP)
+
+# recreate the counts in a new matrix
+counts.adj &lt;- matrix((as.vector(as.integer(counts))), nrow=nrow(counts), ncol=ncol(counts))
+
+rownames(counts.adj) = rownames(counts)
+colnames(counts.adj) = colnames(counts)
+
+# check information
+identical(colnames(counts.adj), rownames(pheno.stage))</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code># transform the group variable to factor
+pheno.stage$GROUP &lt;- as.factor(pheno.stage$GROUP)
+
+# create the DESeqDataSet input
+DEs &lt;- DESeqDataSetFromMatrix(countData = counts.adj,
+                              colData = pheno.stage,
+                              design = ~ GROUP)
+
+# differential expression analysis
+dds &lt;- DESeq(DEs)</code></pre>
+<pre><code>## estimating size factors</code></pre>
+<pre><code>## estimating dispersions</code></pre>
+<pre><code>## gene-wise dispersion estimates</code></pre>
+<pre><code>## mean-dispersion relationship</code></pre>
+<pre><code>## final dispersion estimates</code></pre>
+<pre><code>## fitting model and testing</code></pre>
+<pre><code>## -- replacing outliers and refitting for 14783 genes
+## -- DESeq argument &#39;minReplicatesForReplace&#39; = 7 
+## -- original counts are preserved in counts(dds)</code></pre>
+<pre><code>## estimating dispersions</code></pre>
+<pre><code>## fitting model and testing</code></pre>
+<pre class="r"><code># results extracts a result table from a DESEq analysis 
+res &lt;- results(dds, pAdjustMethod = &quot;fdr&quot;)
+
+head(res)</code></pre>
+<pre><code>## log2 fold change (MLE): GROUP late vs early 
+## Wald test p-value: GROUP late vs early 
+## DataFrame with 6 rows and 6 columns
+##                            baseMean      log2FoldChange              lfcSE
+##                           &lt;numeric&gt;           &lt;numeric&gt;          &lt;numeric&gt;
+## ENSG00000000003.14 360329.147324259 -0.0227770954361432 0.0369738431826037
+## ENSG00000000005.5  356.636642597194   0.836632724574988  0.230185699964791
+## ENSG00000000419.12 171908.507184791 0.00653444097484428 0.0257394413255527
+## ENSG00000000457.13 127260.687212182  0.0338018098241031 0.0244303136613293
+## ENSG00000000460.16 60130.5027120088   0.105835117827293 0.0239738789313073
+## ENSG00000000938.12 67113.8372719459  0.0206206448915856 0.0904818136531188
+##                                  stat               pvalue                 padj
+##                             &lt;numeric&gt;            &lt;numeric&gt;            &lt;numeric&gt;
+## ENSG00000000003.14 -0.616032672710092    0.537872956107162     0.69622186984255
+## ENSG00000000005.5    3.63459904200373 0.000278413289085263  0.00333245397139325
+## ENSG00000000419.12  0.253868795837353    0.799596922496064    0.880555486603879
+## ENSG00000000457.13    1.3836011396615    0.166480619174694    0.325448475071407
+## ENSG00000000460.16   4.41460133049576 1.01196307277987e-05 0.000280312976216526
+## ENSG00000000938.12  0.227898226826434    0.819725361242631    0.894066059020652</code></pre>
+<p>The <code>plotMA</code> function allows the graphical representation of the log<sub>2</sub> fold-change over the mean of normalized counts for all the samples in the <code>DESeqDataSet</code>. Points will be colored red if the adjusted p-value is less than 0.1. Points which fall out of the window are plotted as open triangles pointing either up or down.</p>
+<pre class="r"><code>plotMA(res, ylim=c(-20,20), main=&#39;Differentially expressed genes in early vs late thyroid cancer&#39;)</code></pre>
+<p><img src="p4_tiroides_files/figure-html/visualization-1.png" width="576" style="display: block; margin: auto;" /></p>
+<p>With this analysis it is possible to find the genes that are significanlty overexpressed or underexpressed in late tumours. We will apply the following filters:</p>
+<ol style="list-style-type: decimal">
+<li>Keep genes whose adjusted p-value is lower than 0.001</li>
+</ol>
+<pre class="r"><code>res.padj &lt;- res[(res$padj &lt; 0.001 &amp; !is.na(res$padj)),]
+nrow(res.padj)</code></pre>
+<pre><code>## [1] 2003</code></pre>
+<p>We keep 2003 genes.</p>
+<ol start="2" style="list-style-type: decimal">
+<li>The other variable that will be useful for the filtering is the log<sub>2</sub>fold-change. We will keep genes that have a 10 log<sub>2</sub>fold-change.</li>
+</ol>
+<pre class="r"><code>res.padj_4fold &lt;- res.padj[abs(res.padj$log2FoldChange) &gt; log2(6),] 
+nrow(res.padj_4fold)</code></pre>
+<pre><code>## [1] 7</code></pre>
+<p>We see that this is a more stringent criteria, because only 7 are kept.</p>
+<pre class="r"><code>plotMA(res.padj_4fold, ylim=c(-10,10), main=&#39;Most differentially expressed genes&#39;)</code></pre>
+<p><img src="p4_tiroides_files/figure-html/visualize-top-1.png" width="576" style="display: block; margin: auto;" /></p>
+<p>When we represent only the most differentialy expressed genes we can see that both of them are overexpressed.</p>
+<p><i class="fa fa-question-circle"></i> <strong>Write a short summary of the result of the DE analysis. How many genes are overexpressed? And underexpressed? Fill the table</strong></p>
+<div style="background-color:#F0F0F0">
+<h5 id="answer-3"> <i class="fas fa-comment-dots"></i> Answer:</h5>
+<table>
+<thead>
+<tr class="header">
+<th>Underexpressed</th>
+<th>Not differentially expressed</th>
+<th>Overexpressed</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>58030</td>
+<td>6</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div id="post-rna-seq-analysis-visualization" class="section level3">
+<h3>4. Post RNA-seq analysis: visualization</h3>
+<p>In statistics, a <strong>volcano plot</strong> is a type of scatter-plot that is used to identify changes in large data sets. It plots significance vs. fold-change on the <code>y</code> and <code>x</code> axes, respectively.</p>
+<p>More specifically, a volcano plot is essentially an scatter plot, constructed by plotting the <strong>negative log of the P-value</strong> on the <code>y</code>-axis (usually base 10). This results in data points with low P-values (highly significant) appearing toward the top of the plot. The <code>x</code>-axis is the <strong>log of the fold change</strong> between the two conditions (usually base 2). Each point (gene) will be colored based on the filtering (<code>filter</code>).</p>
+<pre class="r"><code># we first create the dataframe with the results of the DE
+resDF &lt;- as.data.frame(res)
+# new column with the gene names
+resDF$gene &lt;- rownames(resDF)
+# new column with TRUE/FALSE representing if a gene is differetially expressed or not
+resDF$filter &lt;- abs(res$log2FoldChange) &gt; log2(6) &amp; res$padj &lt; 0.001 
+table(resDF$filter)</code></pre>
+<pre><code>## 
+## FALSE  TRUE 
+## 57565     7</code></pre>
+<ol style="list-style-type: decimal">
+<li>With the previous information, build the basic <code>ggplot()</code> layer (i.e., <code>ggplot() + geom_*()</code>)</li>
+</ol>
+<pre class="r"><code>ggplot(data = resDF, mapping = aes(x = log2FoldChange, y = -log10(padj), colour = filter)) +
+  geom_point()</code></pre>
+<pre><code>## Warning: Removed 22775 rows containing missing values (geom_point).</code></pre>
+<p><img src="p4_tiroides_files/figure-html/ggplot1-1.png" width="576" style="display: block; margin: auto;" /></p>
+<ol start="2" style="list-style-type: decimal">
+<li>Improving the graph with publication-quality details
+<ul>
+<li>Use a nice theme (<code>+ theme_*</code>)</li>
+<li>Colourblind palettes (you can use a manual palette using <code>scale_color_manual()</code>)</li>
+<li>Use informative labels and titles (<code>+ labs()</code>)</li>
+<li>Etc.</li>
+</ul></li>
+</ol>
+<pre class="r"><code>ggplot(data = resDF, mapping = aes(x = log2FoldChange, y = -log10(padj), colour = filter)) + theme_minimal() + scale_fill_viridis_d() + labs(title = &quot;Volcano plot&quot;, x = &quot;Effect size: log2(fold-change)&quot;, y = &quot;-log10(adjusted p-value)&quot;) +
+  geom_point()</code></pre>
+<pre><code>## Warning: Removed 22775 rows containing missing values (geom_point).</code></pre>
+<p><img src="p4_tiroides_files/figure-html/ggplot2-1.png" width="576" style="display: block; margin: auto;" /></p>
+<ol start="3" style="list-style-type: decimal">
+<li>One finally thing we can do is to annotate the name of the DE genes. For that we can use the <code>geom_label_repel()</code> function from the <code>ggrepel</code> library.</li>
+</ol>
+<pre class="r"><code>ggplot(data = resDF, mapping = aes(x = log2FoldChange, y = -log10(padj))) + theme_minimal() + scale_fill_viridis_d() + labs(x = &quot;Effect size: log2(fold-change)&quot;, y = &quot;-log10(adjusted p-value)&quot;) +
+  geom_point(aes (colour = filter)) + geom_label_repel(data=resDF[abs(resDF$log2FoldChange) &gt; log2(6) &amp; resDF$padj &lt; 0.001 ,], aes(label = as.factor(gene)), alpha = 0.7, size = 5, force = 1.3)  </code></pre>
+<pre><code>## Warning: Removed 22775 rows containing missing values (geom_point).</code></pre>
+<pre><code>## Warning: Removed 465 rows containing missing values (geom_label_repel).</code></pre>
+<p><img src="p4_tiroides_files/figure-html/ggplot3-1.png" width="576" style="display: block; margin: auto;" /></p>
+<p>The resulting figure could look like something like this:</p>
+<center>
+<img src = "https://bioinformatica.uab.cat/base/documents/sgbcursos/documents/volcano22019_11_28D16_51_24.png" width = 80%>
+</center>
+</div>
+<div id="post-rna-seq-analysis-enrichment-analysis" class="section level3">
+<h3>5. Post RNA-seq analysis: enrichment analysis</h3>
+<p>A common final step to interpret gene expression data is to perform a <strong>gene set enrichment analysis</strong> based on the functional annotation of the differentially expressed genes. This is useful for finding out if the differentially expressed genes are associated with a certain biological process or molecular function.</p>
+<p>The first step is to find some information of the differentially expressed genes, using the <code>biomaRt</code> package.</p>
+<pre class="r"><code># we save a list of DE genes, and we remove the last part of the id
+deGenes &lt;- gsub(&quot;\\..*&quot;, &quot;&quot;,rownames(res.padj_4fold))
+head(deGenes)</code></pre>
+<pre><code>## [1] &quot;ENSG00000036828&quot; &quot;ENSG00000083782&quot; &quot;ENSG00000125414&quot; &quot;ENSG00000125571&quot;
+## [5] &quot;ENSG00000137745&quot; &quot;ENSG00000163092&quot;</code></pre>
+<p>The first step to use the <code>biomaRt</code> package is to selct a database and a dataset. For that we use the <code>useMart</code> function. We will use as database the <code>ensembl</code> and as a dataset the <code>hsapiens_gene_ensembl</code>.</p>
+<pre class="r"><code>biomart_uses &lt;- useMart(biomart=&quot;ensembl&quot;, dataset=&quot;hsapiens_gene_ensembl&quot;)
+biomart_uses</code></pre>
+<pre><code>## Object of class &#39;Mart&#39;:
+##   Using the ENSEMBL_MART_ENSEMBL BioMart database
+##   Using the hsapiens_gene_ensembl dataset</code></pre>
+<p>The second step is to build a biomaRt query. For that we use the <code>getBM()</code> function, that needs three arguments:</p>
+<ol style="list-style-type: decimal">
+<li><code>filter</code>: define a restriction</li>
+<li><code>attributes</code>: define the values we are interested in to retrieve</li>
+<li><code>values</code>: the vector of elements we want to use for the query</li>
+</ol>
+<pre class="r"><code>Entrez_BM &lt;- getBM(attributes=c(&quot;ensembl_gene_id&quot;, &quot;entrezgene_id&quot;),
+                   filter=&quot;ensembl_gene_id&quot;,
+                   values=deGenes,
+                   mart=biomart_uses,
+                   uniqueRows=TRUE)</code></pre>
+<pre><code>## Cache found</code></pre>
+<pre class="r"><code>dim(Entrez_BM)</code></pre>
+<pre><code>## [1] 7 2</code></pre>
+<pre class="r"><code>head(Entrez_BM)</code></pre>
+<pre><code>##   ensembl_gene_id entrezgene_id
+## 1 ENSG00000036828           846
+## 2 ENSG00000083782          1833
+## 3 ENSG00000125414          4620
+## 4 ENSG00000125571         27178
+## 5 ENSG00000137745          4322
+## 6 ENSG00000163092        129446</code></pre>
+<p>We obtain a <code>data.set</code> with two columns, one with the gene ids in the Ensembl format and another with the Entrez gene format.</p>
+<p><i class="fa fa-question-circle"></i> <strong>How many genes are there in the new dataset? Why?</strong></p>
+<div style="background-color:#F0F0F0">
+<h5 id="answer-4"> <i class="fas fa-comment-dots"></i> Answer:</h5>
+<p>There’s 7 genes in the new dataset, as we can see with the dim function.</p>
+</div>
+<p>We can see that there are some NA values. We can clean them using the <code>na.omit</code> function and keep those Entrez gene ids for which we have the information</p>
+<pre class="r"><code>Entrez_ids &lt;- as.character(na.omit(Entrez_BM$entrezgene_id))
+length (Entrez_ids)</code></pre>
+<pre><code>## [1] 7</code></pre>
+<p><i class="fa fa-question-circle"></i> <strong>How many genes are we keeping? Use the <code>length()</code> function to find it out.</strong></p>
+<div style="background-color:#F0F0F0">
+<h5 id="answer-5"> <i class="fas fa-comment-dots"></i> Answer:</h5>
+<p>We’re keeping 7 genes, so we didn’t filter out any gene.</p>
+</div>
+<p>The <code>GOstats</code> R package has extensive facilities for testing the association of Gene Ontology (GO) terms to genes in a gene list.</p>
+<p>To perform a GO enrichment analysis, one needs to define a <strong>gene universe</strong> dataset and a list of the interesting genes (i.e., the DE expressed genes).</p>
+<pre class="r"><code>universe &lt;- mappedkeys(org.Hs.egGO)
+count.mappedkeys(org.Hs.egGO)</code></pre>
+<pre><code>## [1] 20488</code></pre>
+<p>We have information for a total of 20488 human genes.</p>
+<pre class="r"><code># Set the threshold for the p value to 5%
+GOtest &lt;- new(&quot;GOHyperGParams&quot;,
+                 geneIds = Entrez_ids,
+                 universeGeneIds=universe,
+                 annotation = &quot;org.Hs.eg.db&quot;,
+                 ontology = &quot;BP&quot;,
+                 pvalueCutoff= 0.05,
+                 conditional = FALSE,
+                 testDirection = &quot;over&quot;) 
+# hypergeometric test
+GOtestOver &lt;- hyperGTest(GOtest)
+GOtestOver</code></pre>
+<pre><code>## Gene to GO BP  test for over-representation 
+## 440 GO BP ids tested (97 have p &lt; 0.05)
+## Selected gene set size: 7 
+##     Gene universe size: 18670 
+##     Annotation package: org.Hs.eg</code></pre>
+<pre class="r"><code>GOresult &lt;- summary(GOtestOver)
+head(GOresult)</code></pre>
+<pre><code>##       GOBPID       Pvalue OddsRatio   ExpCount Count Size
+## 1 GO:0030049 8.870165e-05 201.36216 0.01462239     2   39
+## 2 GO:0033275 8.870165e-05 201.36216 0.01462239     2   39
+## 3 GO:0070252 7.875166e-04  65.08421 0.04349223     2  116
+## 4 GO:0030048 1.111715e-03  54.49118 0.05174076     2  138
+## 5 GO:0030029 2.071551e-03  17.76488 0.28457418     3  759
+## 6 GO:0032501 2.122294e-03       Inf 2.90610605     7 7751
+##                               Term
+## 1          muscle filament sliding
+## 2    actin-myosin filament sliding
+## 3  actin-mediated cell contraction
+## 4    actin filament-based movement
+## 5     actin filament-based process
+## 6 multicellular organismal process</code></pre>
+<p><i class="fa fa-question-circle"></i> <strong>Which is the best plot to represent the previous data? Discuss it with your colleages and try to create a ggplot2 graph.</strong></p>
+<pre class="r"><code># ggplot2 plot
+p &lt;- ggplot(data = GOresult, mapping = aes(x = Term, y = Count)) + labs(title = &quot;Gene Ontology enrichment analysis&quot;, x = &quot;GO term&quot;) + theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  geom_col(fill = &quot;red&quot;)
+ggsave (filename = &quot;goenrichment.png&quot;, plot = p, width = 16, height = 9)</code></pre>
+<p><i class="fa fa-key"></i> <strong>Hint</strong>: The plot is very similar to the ones performed in the end of practical P2!</p>
+<p><i class="fa fa-question-circle"></i> <strong>Try to interpret the GO result.</strong></p>
+<div style="background-color:#F0F0F0">
+<h5 id="answer-6"> <i class="fas fa-comment-dots"></i> Answer:</h5>
+<p>Most of the genes have different terms, there’s only a few terms that stand out in the plot Multicellular organismal process is the one that has the most genes.</p>
+</div>
+<div style="background-color: #86CBBB; 1px; height:3px ">
+
+</div>
+</div>
+</div>
+<div id="perform-a-rna-seq-analysis" class="section level1">
+<h1><i class="fa fa-cogs"></i> Perform a RNA-seq analysis</h1>
+<p><strong>Following the obesity pleura cancer example, perform a RNA-seq analysis using one of the tumour data provided in the table (one cancer per group).</strong></p>
+<div style="background-color: #86CBBB; 1px; height:3px ">
+
+</div>
+</div>
+<div id="write-an-article-in-overleaf" class="section level1">
+<h1>3. Write an article in Overleaf</h1>
+<p><strong>Write a short article of your RNA-seq analysis. You can use the <a href="https://www.overleaf.com/read/vchzpswtycyg">Overleaf report sample</a>. The article should contain the following sections:</strong></p>
+<ol style="list-style-type: decimal">
+<li>Short abstract</li>
+<li>Methods
+<ul>
+<li>Packages and tools used</li>
+<li>Data description</li>
+<li>Statistical tests</li>
+</ul></li>
+<li>Results with figures</li>
+<li>Discussion</li>
+<li>Bibliography</li>
+<li>Appendix with supplementary figures and the code (commented and with proper objects names)</li>
+</ol>
+<div style="background-color: #86CBBB; 1px; height:3px ">
+
+</div>
+</div>
+<div id="upload-your-results-to-your-github" class="section level1">
+<h1>4. Upload your results to your GitHub</h1>
+<p>Upload this <code>Rmd</code> document and the figures you have generated to your GitHub repository.</p>
+<div style="background-color: #86CBBB; 1px; height:3px ">
+
+</div>
+</div>
+<div id="references" class="section level1">
+<h1>5. References</h1>
+<p>Practical based on Juan Ramón González’ material available at <a href="https://github.com/isglobal-brge/TeachingMaterials/tree/master/Master_Bioinformatics">GitHub</a>.</p>
+<div style="background-color: #86CBBB; 1px; height:3px ">
+
+</div>
+<p><br></p>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
